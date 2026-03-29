@@ -209,6 +209,16 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
 .j-update .badge.new{background:var(--amber-bg);color:var(--amber)}
 .j-update .badge.updated{background:var(--accent-light);color:var(--accent)}
 .j-block.persona{background:#fefce8;border-color:#fde68a}
+.j-sessions{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
+.j-sessions .j-sbadge{font-size:11px;color:var(--text-3);cursor:pointer;padding:2px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--border);transition:all .15s}
+.j-sessions .j-sbadge:hover{color:var(--accent);border-color:var(--accent)}
+.j-pop{display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);min-width:220px;z-index:50;padding:4px 0;margin-top:4px}
+.j-pop.show{display:block}
+.j-pop-item{display:flex;flex-direction:column;padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background .1s}
+.j-pop-item:last-child{border-bottom:none}
+.j-pop-item:hover{background:var(--bg)}
+.j-pop-item .j-pop-title{font-weight:500;color:var(--text-1)}
+.j-pop-item .j-pop-line{font-size:11px;color:var(--text-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Modal */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:100;align-items:center;justify-content:center}
@@ -893,12 +903,18 @@ async function renderJournal(){
     return;
   }
 
-  container.innerHTML = entries.map(e => {
+  container.innerHTML = entries.map((e,ei) => {
+    // Parse frontmatter for session IDs
+    let sessionIds = [];
+    const fmMatch = e.content.match(/^---\n([\s\S]*?)\n---/);
+    if(fmMatch){
+      const sMatch = fmMatch[1].match(/sessions:\s*\[([^\]]*)\]/);
+      if(sMatch) sessionIds = sMatch[1].split(",").map(s=>s.trim()).filter(Boolean);
+    }
     const body = e.content.replace(/^---[\s\S]*?---\n*/,"");
-    // Split into sections by ## headings
     const sections = [];
     body.split(/^## /m).forEach((s,i) => {
-      if(i===0) return; // skip content before first ##
+      if(i===0) return;
       const nl = s.indexOf("\n");
       sections.push({title: s.slice(0,nl).trim(), content: s.slice(nl+1).trim()});
     });
@@ -936,12 +952,29 @@ async function renderJournal(){
       }
     }
 
+    // Session badge + popover
+    let sessionBadge = "";
+    if(sessionIds.length){
+      const popId = `jpop-${ei}`;
+      const items = sessionIds.map(sid => {
+        const s = S.index.sessions.find(x=>x.id===sid);
+        const title = s ? esc(s.title) : sid.slice(0,8);
+        const line = s ? esc(s.one_line||"") : "";
+        return `<div class="j-pop-item" onclick="switchTab('conversations');selectConv('${sid}');document.getElementById('${popId}').classList.remove('show')"><span class="j-pop-title">${title}</span>${line?`<span class="j-pop-line">${line}</span>`:""}</div>`;
+      }).join("");
+      sessionBadge = `<span class="j-sessions" style="position:relative"><span class="j-sbadge" onclick="event.stopPropagation();document.getElementById('${popId}').classList.toggle('show')">${sessionIds.length} session${sessionIds.length>1?"s":""}</span><div id="${popId}" class="j-pop">${items}</div></span>`;
+    }
+
     return `<div class="j-entry">
-      <div class="j-dot"><div class="dot ${e.isToday?"today":"past"}"></div><span>${e.date}</span>${e.isToday?`<span class="when">Today</span>`:""}</div>
+      <div class="j-dot"><div class="dot ${e.isToday?"today":"past"}"></div><span>${e.date}</span>${e.isToday?`<span class="when">Today</span>`:""}${sessionBadge}</div>
       <div class="j-timeline">${blocks}</div>
     </div>`;
   }).join("");
 }
+
+// ===== Journal → Conversation jump =====
+function selectConv(id){S.activeSession=id;renderConvList();renderConv()}
+document.addEventListener("click",()=>{document.querySelectorAll(".j-pop.show").forEach(p=>p.classList.remove("show"))});
 
 // ===== Global search =====
 document.getElementById("globalSearch").addEventListener("input",e=>{
