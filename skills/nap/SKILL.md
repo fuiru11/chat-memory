@@ -33,6 +33,64 @@ one_line: "{one sentence summary of what was discussed}"
 
 Choose tags that describe the topics discussed. Be specific (e.g., "chat-memory", "product-growth") not generic (e.g., "discussion").
 
+## 1.5. Segment the Conversation
+
+Split this conversation into **segments** — chunks of consecutive messages about the same topic or activity. A topic shift happens when:
+- The user explicitly changes subject ("ok let's move on to...", "另一个事情...")
+- The discussion naturally shifts focus (e.g., from design discussion to implementation)
+- There's a clear context switch (e.g., from coding to philosophical chat)
+
+For each segment, record:
+- **topic**: A short, natural name — how a user would refer to it in hindsight. Good: "wireframe 设计评审", "sync.py 时区修复", "AI 记忆 vs 人类记忆". Bad: "technical discussion", "coding", "chat".
+- **summary**: 1-2 sentences of what happened and what was decided
+- **startTs**: timestamp of the first message in the segment (from conversation JSONL)
+- **endTs**: timestamp of the last message in the segment (from conversation JSONL)
+
+### Guidelines
+- Aim for **2-6 segments per hour** of conversation. Don't over-split.
+- Short conversations (<10 messages) can be a single segment.
+- Skip tool-only noise (e.g., a sequence of file reads with no discussion).
+
+### Write segments and link to topics
+
+1. Read existing `~/chat-memory/data/segments.json` (create as `[]` if missing).
+2. Read existing `~/chat-memory/data/topics.json` (create as `{}` if missing).
+3. For each new segment:
+   - Check if it matches an existing topic: compare the segment's topic name against each topic's `name` and `description`. Match if they're clearly about the same evolving subject (e.g., "Viewer 点击交互" and "highlight 点击跳转" are the same topic).
+   - **If match**: set `topicId` to the existing topic's id, append segment id to the topic's `segments` array, update `lastUpdated`.
+   - **If no match**: create a new topic with `id: "topic-{slugified-name}"`, set `name`, `description` (one-line summary of what this topic covers), `segments: [segId]`, `lastUpdated`.
+   - Prefer merging into existing topics over creating new ones.
+4. Append segments to `segments.json`. Write updated `topics.json`.
+
+### Segment data format
+
+```json
+{
+  "id": "seg-{first 8 chars of sessionId}-{index}",
+  "sessionId": "{session UUID}",
+  "index": 0,
+  "topic": "wireframe 设计评审",
+  "summary": "画了 Home/Conversations/Journal 三个页面的 wireframe，确定了渐进式披露的布局",
+  "startTs": "{ISO timestamp of first message}",
+  "endTs": "{ISO timestamp of last message}",
+  "topicId": "topic-wireframe-design"
+}
+```
+
+### Topic data format
+
+```json
+{
+  "topic-wireframe-design": {
+    "id": "topic-wireframe-design",
+    "name": "Wireframe 设计",
+    "description": "Chat Memory viewer 的页面布局和交互设计",
+    "segments": ["seg-d1ce14af-2"],
+    "lastUpdated": "2026-03-30"
+  }
+}
+```
+
 ## 2. Detect Highlights
 
 **Highlights are tracked during conversations in `~/chat-memory/data/.highlights-draft.jsonl` (one JSON per line). At /nap time, read this draft file, merge into the main highlights.json, then delete the draft. If the draft is empty or missing, skip this step — do NOT try to recall highlights from memory.**

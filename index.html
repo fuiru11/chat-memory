@@ -150,10 +150,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .dropdown-item.danger{color:var(--danger)}
 .dropdown-item.danger:hover{background:var(--danger-bg)}
 
-.summary-panel{display:none;padding:14px 24px;background:#fefce8;border-bottom:1px solid #fde68a;max-height:280px;overflow-y:auto}
+.summary-panel{display:none;padding:14px 24px;background:#fefce8;border-bottom:1px solid #fde68a;max-height:320px;overflow-y:auto}
 .summary-panel.show{display:block}
 .summary-panel h4{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
 .summary-panel .sbody{font-size:13px;line-height:1.6}
+.seg-card{padding:8px 12px;border-left:3px solid var(--accent);border-radius:0 6px 6px 0;background:var(--bg-2);margin-bottom:6px;cursor:pointer;transition:background .15s}
+.seg-card:hover{background:#fef3c7}
+.seg-topic{font-size:13px;font-weight:600;color:var(--text-1);cursor:pointer}
+.seg-topic[data-tid]:hover{color:var(--accent);text-decoration:underline}
+.seg-summary{font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.5}
+.seg-time{font-size:11px;color:var(--text-3);margin-top:3px}
+.topic-pill{cursor:pointer;transition:opacity .15s}
+.topic-pill:hover{opacity:.7}
+.topic-timeline-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.topic-timeline-item:last-child{border-bottom:none}
+.topic-timeline-date{font-size:11px;color:var(--text-3);margin-bottom:2px}
+.topic-timeline-title{font-size:13px;font-weight:500;color:var(--text-1);cursor:pointer}
+.topic-timeline-title:hover{color:var(--accent)}
+.topic-timeline-summary{font-size:12px;color:var(--text-2);margin-top:3px;padding-left:14px;border-left:2px solid var(--border)}
 
 .chat-area{flex:1;overflow-y:auto;padding:16px 24px}
 .empty-state{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-3);font-size:14px}
@@ -333,7 +347,7 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
               </div>
             </div>
           </div>
-          <div class="summary-panel" id="summaryPanel"></div>
+          <div class="summary-panel" id="segmentsPanel"></div>
           <div id="convArtifacts"></div>
           <div class="chat-area" id="chatArea"><div class="empty-state">Select a conversation</div></div>
         </div>
@@ -386,6 +400,18 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
   </div>
 </div>
 
+<!-- Topic thread modal -->
+<div class="modal-bg" id="topicModal">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="document.getElementById('topicModal').classList.remove('show')">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <h3 id="topicModalTitle"></h3>
+    <p id="topicModalDesc" style="color:var(--text-2);font-size:13px;margin-bottom:12px"></p>
+    <div class="modal-body" id="topicModalBody"></div>
+  </div>
+</div>
+
 <!-- Delete modal -->
 <div class="modal-bg" id="delModal">
   <div class="modal">
@@ -402,10 +428,11 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
 // State
 let S = {
   index: null, tags: {}, highlights: [], artifacts: [], insight: null,
+  segments: [], topics: {}, segSearchIdx: {},
   activeTab: "home", activeSession: null,
   convCache: {}, searchQuery: "", convSearch: "",
-  selectedDate: null, activeTags: new Set(),
-  showSummary: false, deletingId: null,
+  selectedDate: null, activeTopics: new Set(),
+  showSegments: false, deletingId: null,
   calY: new Date().getFullYear(), calM: new Date().getMonth(),
   deleted: new Set(),
 };
@@ -420,20 +447,30 @@ async function fetchJSON(url) {
 }
 
 async function init() {
-  const [index, tags, highlights, artifacts, deleted, insight] = await Promise.all([
+  const [index, tags, highlights, artifacts, deleted, insight, segments, topics] = await Promise.all([
     fetchJSON("data/index.json"),
     fetchJSON("data/tags.json"),
     fetchJSON("data/highlights.json"),
     fetchJSON("data/artifacts.json"),
     fetchJSON("data/deleted.json"),
     fetchJSON("data/latest-insight.json"),
+    fetchJSON("data/segments.json"),
+    fetchJSON("data/topics.json"),
   ]);
   S.index = index || {sessions:[]};
   S.tags = tags || {};
   S.highlights = highlights || [];
   S.artifacts = artifacts || [];
   S.insight = insight;
+  S.segments = segments || [];
+  S.topics = topics || {};
   S.deleted = new Set(deleted || []);
+  // Build segment search index: sessionId → searchable text
+  S.segSearchIdx = {};
+  for (const seg of S.segments) {
+    if (!S.segSearchIdx[seg.sessionId]) S.segSearchIdx[seg.sessionId] = "";
+    S.segSearchIdx[seg.sessionId] += " " + seg.topic + " " + seg.summary;
+  }
   // Merge any localStorage fallback deletes, then sync to API
   try{
     const ld=JSON.parse(localStorage.getItem("chatMemoryDeleted")||"[]");
@@ -451,7 +488,7 @@ async function init() {
   S.index.sessions = S.index.sessions.filter(s => !S.deleted.has(s.id));
 
   renderHome();
-  renderTags();
+  renderTopicChips();
   renderConvList();
   renderCalendar();
   renderJournal();
@@ -646,7 +683,7 @@ function renderHome() {
       ${themes?`<div class="themes">${themes}</div>`:''}
       <div class="insight-stats">
         <div><div class="stat-val">${st.conversations||sessions.length}</div><div class="stat-label">conversations</div></div>
-        <div><div class="stat-val">${st.topics||Object.keys(S.tags).length}</div><div class="stat-label">topics</div></div>
+        <div><div class="stat-val">${st.topics||Object.keys(S.topics).length}</div><div class="stat-label">topics</div></div>
         <div><div class="stat-val">${st.highlights||S.highlights.length}</div><div class="stat-label">highlights</div></div>
       </div>
     </div>`;
@@ -658,10 +695,26 @@ function renderHome() {
       <div class="body"><p style="color:var(--text-2);font-style:italic">Weekly insight will appear here after your first retro.</p></div>
       <div class="insight-stats">
         <div><div class="stat-val">${sessions.length}</div><div class="stat-label">conversations</div></div>
-        <div><div class="stat-val">${Object.keys(S.tags).length}</div><div class="stat-label">topics</div></div>
+        <div><div class="stat-val">${Object.keys(S.topics).length}</div><div class="stat-label">topics</div></div>
         <div><div class="stat-val">${S.highlights.length}</div><div class="stat-label">highlights</div></div>
       </div>
     </div>`;
+  }
+
+  // Active Topics
+  const topicList=Object.values(S.topics).sort((a,b)=>(b.lastUpdated||"").localeCompare(a.lastUpdated||"")).slice(0,5);
+  if(topicList.length){
+    h+=`<div class="section-header"><h3>Active Topics</h3></div>`;
+    h+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">`;
+    for(const t of topicList){
+      const segCount=t.segments?t.segments.length:0;
+      h+=`<div class="recent-row" style="cursor:pointer" onclick="showTopicThread('${esc(t.id)}')">
+        <span class="rdate">${segCount} segment${segCount!==1?"s":""}</span>
+        <span class="rtitle">${esc(t.name)}</span>
+        <span style="color:var(--text-3);font-size:11px">${esc(t.lastUpdated||"")}</span>
+      </div>`;
+    }
+    h+=`</div>`;
   }
 
   // Highlights
@@ -692,11 +745,14 @@ function renderHome() {
   h += `<div class="section-header"><h3>Recent Conversations</h3><a onclick="switchTab('conversations')">View all</a></div>`;
   h += `<div style="display:flex;flex-direction:column;gap:2px;margin-bottom:20px">`;
   for (const s of recent) {
-    const tags = (s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+    const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name).filter(Boolean);
+    const pills=topicNames.length
+      ?topicNames.map(n=>`<span class="tag-pill">${esc(n)}</span>`).join("")
+      :(s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
     h += `<div class="recent-row" onclick="openConversation('${s.id}')">
       <span class="rdate">${fmtShortDate(s.date)}</span>
       <span class="rtitle">${esc(s.title||"Untitled")}</span>
-      <div style="display:flex;gap:4px">${tags}</div>
+      <div style="display:flex;gap:4px">${pills}</div>
     </div>`;
   }
   h += `</div>`;
@@ -745,41 +801,55 @@ document.getElementById("calToggle").addEventListener("click",()=>{
   document.getElementById("calToggle").classList.toggle("active");
 });
 
-function renderTags(){
+function renderTopicChips(){
   const c=document.getElementById("tagFilters");
-  const tags=Object.keys(S.tags).sort();
-  if(!tags.length){c.style.display="none";return}
+  const tids=Object.keys(S.topics).sort((a,b)=>(S.topics[b].lastUpdated||"").localeCompare(S.topics[a].lastUpdated||""));
+  if(!tids.length){c.style.display="none";return}
   c.style.display="flex";
-  c.innerHTML=tags.map(t=>`<span class="tag-chip ${S.activeTags.has(t)?"active":""}" data-t="${t}">#${t}</span>`).join("");
+  c.innerHTML=tids.slice(0,15).map(tid=>{
+    const t=S.topics[tid];
+    return`<span class="tag-chip ${S.activeTopics.has(tid)?"active":""}" data-t="${tid}">${esc(t.name)}</span>`;
+  }).join("");
   c.querySelectorAll(".tag-chip").forEach(ch=>ch.addEventListener("click",()=>{
-    const t=ch.dataset.t;S.activeTags.has(t)?S.activeTags.delete(t):S.activeTags.add(t);renderTags();renderConvList();
+    const tid=ch.dataset.t;S.activeTopics.has(tid)?S.activeTopics.delete(tid):S.activeTopics.add(tid);renderTopicChips();renderConvList();
   }));
+}
+
+// Get set of sessionIds that have segments in given topicIds
+function sessionsForTopics(topicIds){
+  const sids=new Set();
+  for(const tid of topicIds){
+    const t=S.topics[tid];
+    if(!t)continue;
+    for(const segId of t.segments){
+      const seg=S.segments.find(s=>s.id===segId);
+      if(seg)sids.add(seg.sessionId);
+    }
+  }
+  return sids;
 }
 
 function matchSession(s){
   if(S.selectedDate&&s.date!==S.selectedDate)return false;
-  if(S.activeTags.size){const st=new Set(s.tags||[]);for(const t of S.activeTags)if(!st.has(t))return false}
+  // Topic filter: session must have at least one segment in ALL active topics
+  if(S.activeTopics.size){
+    const sTopics=new Set(s.topicIds||[]);
+    for(const tid of S.activeTopics)if(!sTopics.has(tid))return false;
+  }
   const raw=S.convSearch.trim();
   if(raw){
-    // Parse #tag searches
-    const tagSearches=[];
-    const textParts=[];
-    raw.split(/\s+/).forEach(w=>{
-      if(w.startsWith("#")&&w.length>1)tagSearches.push(w.slice(1).toLowerCase());
-      else textParts.push(w);
-    });
-    // Check tag matches
+    const q=raw.toLowerCase();
+    const segText=(S.segSearchIdx[s.id]||"").toLowerCase();
     const sTags=(s.tags||[]).map(t=>t.toLowerCase());
     const sProj=(s.project||"").toLowerCase();
-    for(const t of tagSearches){
-      if(!sTags.some(st=>st.includes(t))&&!sProj.includes(t))return false;
-    }
-    // Check text matches
-    const q=textParts.join(" ").toLowerCase();
-    if(q){
-      if(!(s.title||"").toLowerCase().includes(q)&&!(s.one_line||"").toLowerCase().includes(q)
-        &&!sTags.some(t=>t.includes(q))&&!sProj.includes(q))return false;
-    }
+    // Search across: title, one_line, segment text, tags, project, topic names
+    const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name||"").join(" ").toLowerCase();
+    if(!(s.title||"").toLowerCase().includes(q)
+      &&!(s.one_line||"").toLowerCase().includes(q)
+      &&!segText.includes(q)
+      &&!topicNames.includes(q)
+      &&!sTags.some(t=>t.includes(q))
+      &&!sProj.includes(q))return false;
   }
   return true;
 }
@@ -789,24 +859,28 @@ function renderConvList(){
   const ss=S.index.sessions.filter(matchSession);
   if(!ss.length){c.innerHTML=`<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No conversations found</div>`;return}
   c.innerHTML=ss.map(s=>{
-    const tags=(s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+    // Show topic names; fallback to tags if no topics
+    const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name).filter(Boolean);
+    const pills=topicNames.length
+      ?topicNames.map(n=>`<span class="tag-pill">${esc(n)}</span>`).join("")
+      :(s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
     const proj=s.project?`<span class="tag-pill" style="background:#e0e7ff;color:#4338ca">${esc(s.project)}</span>`:"";
     return`<div class="conv-card ${s.id===S.activeSession?"active":""}" data-id="${s.id}">
       <div class="cdate">${s.date}${proj?` ${proj}`:""}</div>
       <div class="ctitle">${hl(s.title||"Untitled",S.convSearch)}</div>
       <div class="cprev">${hl(s.one_line||"",S.convSearch)}</div>
-      ${tags?`<div class="ctags">${tags}</div>`:""}
+      ${pills?`<div class="ctags">${pills}</div>`:""}
     </div>`;
   }).join("");
   c.querySelectorAll(".conv-card").forEach(card=>card.addEventListener("click",()=>{
-    S.activeSession=card.dataset.id;S.showSummary=false;renderConvList();renderConv();
+    S.activeSession=card.dataset.id;S.showSegments=false;renderConvList();renderConv();
   }));
 }
 
 async function renderConv(){
   const hdr=document.getElementById("convHeader");
   const area=document.getElementById("chatArea");
-  const sp=document.getElementById("summaryPanel");
+  const sp=document.getElementById("segmentsPanel");
   if(!S.activeSession){hdr.style.display="none";sp.classList.remove("show");area.innerHTML=`<div class="empty-state">Select a conversation</div>`;document.getElementById("convArtifacts").innerHTML="";return}
 
   const conv=await loadConversation(S.activeSession);
@@ -816,9 +890,12 @@ async function renderConv(){
   hdr.style.display="flex";
   document.getElementById("convTitle").textContent=session?.title||"Untitled";
   document.getElementById("convMeta").textContent=`${fmtDate(conv.startTime)} — ${fmtTime(conv.endTime)} · ${conv.messageCount} messages`;
-  document.getElementById("convTags").innerHTML=(session?.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+  // Show topic pills instead of tags
+  const sesTopics=(session?.topicIds||[]).map(tid=>S.topics[tid]).filter(Boolean);
+  document.getElementById("convTags").innerHTML=sesTopics.map(t=>`<span class="tag-pill topic-pill" data-tid="${t.id}">${esc(t.name)}</span>`).join("")
+    ||(session?.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join(""); // fallback to tags
 
-  renderSummary();
+  renderSegments();
   renderConvArtifacts(S.activeSession);
 
   const q=S.convSearch;
@@ -833,16 +910,83 @@ async function renderConv(){
   area.innerHTML=h;area.scrollTop=0;
 }
 
-function renderSummary(){
-  const p=document.getElementById("summaryPanel");
-  if(!S.showSummary){p.classList.remove("show");return}
-  const s=S.index.sessions.find(s=>s.id===S.activeSession);
+function renderSegments(){
+  const p=document.getElementById("segmentsPanel");
+  if(!S.showSegments){p.classList.remove("show");return}
+  const segs=S.segments.filter(s=>s.sessionId===S.activeSession).sort((a,b)=>a.index-b.index);
   p.classList.add("show");
-  p.innerHTML=s?.one_line?`<h4>Summary</h4><div class="sbody">${esc(s.one_line)}</div>`:`<p style="color:var(--text-2);font-size:13px">No summary yet</p>`;
+  if(!segs.length){
+    const s=S.index.sessions.find(s=>s.id===S.activeSession);
+    p.innerHTML=s?.one_line?`<h4>Summary</h4><div class="sbody">${esc(s.one_line)}</div>`:`<p style="color:var(--text-2);font-size:13px">No segments yet</p>`;
+    return;
+  }
+  p.innerHTML=`<h4>Segments</h4>`+segs.map(seg=>{
+    const topicName=seg.topicId&&S.topics[seg.topicId]?S.topics[seg.topicId].name:seg.topic;
+    return`<div class="seg-card" data-start="${seg.startTs}">
+      <div class="seg-topic"${seg.topicId?` data-tid="${seg.topicId}"`:""}>${esc(topicName)}</div>
+      <div class="seg-summary">${esc(seg.summary)}</div>
+      <div class="seg-time">${fmtTime(seg.startTs)} — ${fmtTime(seg.endTs)}</div>
+    </div>`;
+  }).join("");
+  // Click segment → scroll to message
+  p.querySelectorAll(".seg-card").forEach(card=>card.addEventListener("click",()=>{
+    scrollToMessage(card.dataset.start);
+  }));
+  // Click topic name → show topic thread
+  p.querySelectorAll(".seg-topic[data-tid]").forEach(el=>el.addEventListener("click",e=>{
+    e.stopPropagation();showTopicThread(el.dataset.tid);
+  }));
 }
 
+function showTopicThread(topicId){
+  const topic=S.topics[topicId];
+  if(!topic)return;
+  document.getElementById("topicModalTitle").textContent=topic.name;
+  document.getElementById("topicModalDesc").textContent=topic.description||"";
+  const segs=topic.segments.map(sid=>S.segments.find(s=>s.id===sid)).filter(Boolean);
+  // Group by sessionId, ordered by segment startTs
+  const bySession={};
+  for(const seg of segs){
+    if(!bySession[seg.sessionId])bySession[seg.sessionId]=[];
+    bySession[seg.sessionId].push(seg);
+  }
+  const sessionOrder=Object.keys(bySession).sort((a,b)=>{
+    const sa=bySession[a][0],sb=bySession[b][0];
+    return(sa.startTs||"").localeCompare(sb.startTs||"");
+  });
+  let html="";
+  for(const sid of sessionOrder){
+    const session=S.index.sessions.find(s=>s.id===sid);
+    const date=session?.date||"";
+    const title=session?.title||"Untitled";
+    for(const seg of bySession[sid]){
+      html+=`<div class="topic-timeline-item">
+        <div class="topic-timeline-date">${esc(date)}</div>
+        <div class="topic-timeline-title" data-sid="${sid}" data-ts="${seg.startTs}">${esc(title)}</div>
+        <div class="topic-timeline-summary">${esc(seg.summary)}</div>
+      </div>`;
+    }
+  }
+  document.getElementById("topicModalBody").innerHTML=html||`<p style="color:var(--text-2)">No segments yet</p>`;
+  // Click timeline item → jump to that session + segment
+  document.querySelectorAll("#topicModalBody .topic-timeline-title").forEach(el=>el.addEventListener("click",()=>{
+    document.getElementById("topicModal").classList.remove("show");
+    S.activeSession=el.dataset.sid;
+    switchTab("conversations");
+    renderConvList();
+    renderConv().then(()=>scrollToMessage(el.dataset.ts));
+  }));
+  document.getElementById("topicModal").classList.add("show");
+}
+
+// Topic pill click handler (delegated)
+document.addEventListener("click",e=>{
+  const pill=e.target.closest(".topic-pill[data-tid]");
+  if(pill)showTopicThread(pill.dataset.tid);
+});
+
 document.getElementById("convSearch").addEventListener("input",e=>{S.convSearch=e.target.value.trim();renderConvList();if(S.activeSession)renderConv()});
-document.getElementById("summaryBtn").addEventListener("click",()=>{S.showSummary=!S.showSummary;document.getElementById("summaryBtn").classList.toggle("active",S.showSummary);renderSummary()});
+document.getElementById("summaryBtn").addEventListener("click",()=>{S.showSegments=!S.showSegments;document.getElementById("summaryBtn").classList.toggle("active",S.showSegments);renderSegments()});
 document.getElementById("moreBtn").addEventListener("click",e=>{e.stopPropagation();document.getElementById("moreMenu").classList.toggle("show")});
 document.addEventListener("click",()=>document.getElementById("moreMenu").classList.remove("show"));
 
@@ -872,7 +1016,7 @@ document.getElementById("delConfirm").addEventListener("click",async()=>{
   }catch(e){
     localStorage.setItem("chatMemoryDeleted",JSON.stringify([...S.deleted]));
   }
-  renderTags();renderConvList();renderCalendar();renderHome();
+  renderTopicChips();renderConvList();renderCalendar();renderHome();
 });
 
 // ===== JOURNAL =====

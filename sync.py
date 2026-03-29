@@ -391,13 +391,16 @@ def sync(config, quiet=False):
 
         summary = load_summary(sid) or auto_summary(conv)
         all_summaries[sid] = summary
+        # Track startTime for sorting
+        all_summaries[sid]["_startTime"] = conv.get("startTime", "")
 
-    # Build index
+    # Build index (sort by startTime desc for correct ordering within same date)
     sessions = sorted(
         [{"id": sid, "project": session_projects.get(sid, ""),
+          "startTime": s.get("_startTime", ""),
           **{k: s[k] for k in ["date", "title", "one_line", "tags"]}}
          for sid, s in all_summaries.items()],
-        key=lambda x: x.get("date", ""), reverse=True
+        key=lambda x: x.get("startTime", "") or x.get("date", ""), reverse=True
     )
     index = {"lastUpdated": datetime.utcnow().isoformat() + "Z", "sessions": sessions}
     (DATA_DIR / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2))
@@ -409,11 +412,30 @@ def sync(config, quiet=False):
             tags.setdefault(t, []).append(sid)
     (DATA_DIR / "tags.json").write_text(json.dumps(tags, ensure_ascii=False, indent=2))
 
+    # Enrich sessions with topicIds from segments
+    seg_file = DATA_DIR / "segments.json"
+    if seg_file.exists():
+        try:
+            segments = json.loads(seg_file.read_text())
+            session_topics = {}
+            for seg in segments:
+                sid = seg.get("sessionId")
+                tid = seg.get("topicId")
+                if sid and tid:
+                    session_topics.setdefault(sid, set()).add(tid)
+            for s in sessions:
+                s["topicIds"] = sorted(session_topics.get(s["id"], []))
+            # Rewrite index with topicIds
+            (DATA_DIR / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2))
+        except (json.JSONDecodeError, KeyError):
+            pass
+
     # Init data files if missing
-    for fname in ["highlights.json", "artifacts.json"]:
+    for fname, default in [("highlights.json", "[]"), ("artifacts.json", "[]"),
+                           ("segments.json", "[]"), ("topics.json", "{}")]:
         f = DATA_DIR / fname
         if not f.exists():
-            f.write_text("[]")
+            f.write_text(default)
 
     save_state(state)
     if not quiet:
