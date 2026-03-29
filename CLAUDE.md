@@ -33,7 +33,7 @@ Claude Code JSONL → sync.py → data/conversations/*.json + data/index.json
 
 1. **Home** — Weekly insight, recent highlights/artifacts/conversations
 2. **Conversations** — Sidebar list + chat view, calendar filter, tag filter, search
-3. **Tutu's Journal** — Daily reflection entries (4 sections: Daily Reflection, What I Learned, Understanding Feier, Persona Update)
+3. **Journal** — Daily reflection entries (4 sections: Daily Reflection, What I Learned, Understanding the User, Growth Notes)
 
 ## Design Principles
 

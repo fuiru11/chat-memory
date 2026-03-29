@@ -55,7 +55,7 @@ def init_config():
         "project_filter": None,
         "port": 8787,
         "sync_interval": 300,
-        "persona_name": "Tutu",
+        "persona_name": "Claude",
         "user_name": "User",
     }
     CONFIG_FILE.write_text(json.dumps(default, indent=2, ensure_ascii=False))
@@ -298,9 +298,9 @@ def save_deleted(deleted):
 def extract_project_name(project_dir_name):
     """Extract readable project name from Claude Code's directory naming.
     Claude Code encodes paths as: -Users-name-path-to-project
-    e.g. '-Users-cfffei2' -> '' (home dir)
-         '-Users-cfffei2-my-project' -> 'my-project'
-         '-Users-cfffei2-work-repo' -> 'work-repo'
+    e.g. '-Users-alice' -> '' (home dir)
+         '-Users-alice-my-project' -> 'my-project'
+         '-Users-alice-work-repo' -> 'work-repo'
     """
     # Decode: replace leading dash, split by path separator pattern
     # The dir name is the cwd path with / replaced by -

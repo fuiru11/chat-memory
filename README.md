@@ -1,49 +1,61 @@
 # Chat Memory
 
-A local web app for browsing, searching, and reflecting on your Claude Code conversations.
+A local tool for browsing, reflecting on, and learning from your Claude Code conversations.
 
-Chat Memory syncs your Claude Code conversation logs, cleans them into readable format, and serves a web UI for browsing. It's designed to work alongside Claude Code as a companion knowledge base.
+Chat Memory syncs your Claude Code conversation logs into a clean web viewer, and adds AI-powered journaling — daily reflections, weekly retrospectives, and highlight tracking — so your conversations compound into lasting knowledge.
 
-## Features
-
-- **Conversation viewer** — Browse past conversations with markdown rendering, search, tag filtering, and calendar navigation
-- **Summaries & tags** — AI-generated summaries and topic tags for each session
-- **Highlights** — Auto-detected and manually bookmarked notable moments
-- **Artifacts** — Track research reports and files produced during conversations
-- **Journal** — AI growth diary with daily reflections and learnings
-- **Weekly Insight** — Automated weekly reflection connecting themes across conversations
-- **Auto-sync** — Background sync picks up new conversations automatically
-- **Local-first** — All data stays on your machine
+<!-- TODO: screenshot -->
 
 ## Quick Start
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/your-username/chat-memory.git
+git clone https://github.com/YOUR-USERNAME/chat-memory.git
 cd chat-memory
+chmod +x setup.sh && ./setup.sh
+```
 
-# 2. Initialize config
-python3 sync.py --init
+The setup script will:
+- Create your config and data directories
+- Install Claude Code skills (`/nap`, `/sleep`, `/morning`, `/weekly-retro`)
+- Run the first sync of your conversations
+- Optionally set up auto-start on macOS
 
-# 3. Edit config.json to set your Claude Code projects path
-#    (default ~/.claude/projects should work for most users)
+Then open the viewer:
 
-# 4. Sync and start the viewer
+```bash
 python3 sync.py --serve
 ```
 
-The viewer opens at `http://localhost:8787`.
+## What It Does
 
-## Setup
+**Conversation Viewer** — Browse past conversations with markdown rendering, search, tag filtering, and calendar navigation.
 
-### Requirements
+**Summaries & Tags** — AI-generated summaries and topic tags for each session. Created when you run `/nap` at the end of a conversation.
 
-- Python 3.8+
-- A local Claude Code installation (conversation logs in `~/.claude/projects/`)
+**Highlights** — Notable moments (insights, perspective shifts, good metaphors) tracked during conversations and collected at `/nap` time.
 
-### Configuration
+**Daily Journal** (`/sleep`) — An end-of-day reflection written by your AI persona. Covers what happened, what was learned, and what to do next.
 
-Edit `config.json`:
+**Morning Brief** (`/morning`) — A quick recap of yesterday's journal and open action items.
+
+**Weekly Retro** (`/weekly-retro`) — A weekly reflection that connects themes across conversations and tracks growth over time.
+
+## Skills
+
+Chat Memory ships with 4 Claude Code skills that get installed to `~/.claude/skills/`:
+
+| Skill | When to use |
+|-------|------------|
+| `/nap` | End of a conversation — saves summary, highlights, artifacts |
+| `/sleep` | End of the day — writes your daily journal |
+| `/morning` | Start of the day — reviews yesterday's journal |
+| `/weekly-retro` | End of the week — writes a weekly retrospective |
+
+These skills work out of the box with generic defaults. To make them your own, see [Customization](#customization).
+
+## Configuration
+
+Edit `config.json` after setup:
 
 ```json
 {
@@ -51,7 +63,7 @@ Edit `config.json`:
   "project_filter": null,
   "port": 8787,
   "sync_interval": 300,
-  "persona_name": "Tutu",
+  "persona_name": "Claude",
   "user_name": "User"
 }
 ```
@@ -59,13 +71,34 @@ Edit `config.json`:
 | Field | Description |
 |-------|------------|
 | `claude_projects_dir` | Path to Claude Code's project data |
-| `project_filter` | Only sync projects matching this string (null = all) |
+| `project_filter` | Only sync projects matching this string (`null` = all) |
 | `port` | Local server port |
-| `sync_interval` | Auto-sync interval in seconds (default 300 = 5 min) |
-| `persona_name` | AI persona name (shown in Journal) |
+| `sync_interval` | Auto-sync interval in seconds |
+| `persona_name` | Your AI persona's name (shown in journals) |
 | `user_name` | Your name |
 
-### Auto-start (macOS)
+## Customization
+
+The default skills are generic. The real power comes from personalizing them — give your AI a name, a personality, custom journal sections that match how you think.
+
+Tell Claude Code:
+
+> Help me customize my Chat Memory skills. I want my AI persona to be called [name] with [personality traits]. I'd like the journal sections to reflect [what matters to you].
+
+Claude will read the skill files in `~/.claude/skills/` and help you tailor them.
+
+## Commands
+
+```bash
+python3 sync.py              # Sync conversations
+python3 sync.py --serve      # Sync + start server + open browser
+python3 sync.py --daemon     # Sync + start server (no browser, for auto-start)
+python3 sync.py --init       # Create default config.json
+python3 sync.py --install    # Install as macOS auto-start service
+python3 sync.py --uninstall  # Remove auto-start service
+```
+
+## Auto-Start (macOS)
 
 To run Chat Memory automatically on login:
 
@@ -73,54 +106,38 @@ To run Chat Memory automatically on login:
 python3 sync.py --install
 ```
 
-This creates a launchd service that starts the server on boot, keeps it alive, and auto-syncs in the background.
+This creates a LaunchAgent that keeps the server running and auto-syncs in the background. The setup script offers this as an option during install.
 
-To remove:
-
-```bash
-python3 sync.py --uninstall
-```
-
-## Usage
-
-### Commands
-
-```bash
-python3 sync.py              # Sync conversations
-python3 sync.py --serve      # Sync + start server + open browser
-python3 sync.py --daemon     # Sync + start server (no browser)
-python3 sync.py --init       # Create default config.json
-python3 sync.py --install    # Install as macOS auto-start service
-python3 sync.py --uninstall  # Remove auto-start service
-```
-
-### Data Directory
-
-After syncing, `data/` contains:
+## Architecture
 
 ```
-data/
-  index.json          — Session index (lightweight metadata)
-  tags.json           — Tag-to-session mapping
-  conversations/      — Cleaned conversation JSON files
-  summaries/          — Session summaries (markdown)
-  highlights.json     — Notable conversation moments
-  artifacts.json      — File/research output index
-  journal/            — Daily journal entries (markdown)
+Claude Code JSONL logs
+        |
+    sync.py (parse + clean)
+        |
+   data/ directory
+   ├── conversations/*.json    (full messages)
+   ├── summaries/*.md          (AI summaries)
+   ├── highlights.json         (notable moments)
+   ├── artifacts.json          (files created)
+   ├── journal/*.md            (daily reflections)
+   └── insights/*.md           (weekly retros)
+        |
+   index.html (web viewer)
+   ├── Home        — weekly insight, recent highlights
+   ├── Conversations — browse, search, filter
+   └── Journal     — daily + weekly reflections
 ```
 
-### Companion Claude Code Workflow
+## Requirements
 
-Chat Memory works best when paired with Claude Code habits:
-
-1. **End of session** — Ask Claude to write a summary and detect highlights
-2. **Research tasks** — Ask Claude to save results as markdown files in `artifacts/`
-3. **Daily journal** — Can be automated via cron to run at a set time
-4. **Weekly insight** — Can be automated via cron for weekly reflections
+- Python 3.8+ (stdlib only, no pip install needed)
+- Claude Code (for conversation logs and skills)
+- A modern browser
 
 ## Privacy
 
-All data is stored locally. The `.gitignore` excludes personal data (`data/`, `artifacts/`, `config.json`) so you can safely push the repo without exposing conversations.
+All data stays on your machine. The `.gitignore` excludes personal data (`data/`, `artifacts/`, `config.json`) so you can safely push without exposing conversations.
 
 ## License
 

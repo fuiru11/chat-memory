@@ -1,0 +1,148 @@
+#!/bin/bash
+# Chat Memory — One-time setup script
+# Run this after cloning the repo: ./setup.sh
+
+set -e
+
+CHAT_MEMORY_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILLS_SRC="$CHAT_MEMORY_DIR/skills"
+SKILLS_DST="$HOME/.claude/skills"
+
+echo "=== Chat Memory Setup ==="
+echo ""
+
+# --- Check Python ---
+if ! command -v python3 &>/dev/null; then
+  echo "Error: Python 3 is required. Install it first."
+  exit 1
+fi
+
+PY_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+PY_MAJOR=$(echo "$PY_VERSION" | cut -d. -f1)
+PY_MINOR=$(echo "$PY_VERSION" | cut -d. -f2)
+if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 8 ]; }; then
+  echo "Error: Python 3.8+ required (found $PY_VERSION)"
+  exit 1
+fi
+echo "[ok] Python $PY_VERSION"
+
+# --- Check Claude Code ---
+CLAUDE_BIN=""
+for candidate in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" "$(command -v claude 2>/dev/null)"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    CLAUDE_BIN="$candidate"
+    break
+  fi
+done
+if [ -z "$CLAUDE_BIN" ]; then
+  echo "[warn] Claude Code CLI not found — skills will be installed but cron scripts won't work until you install Claude Code"
+else
+  echo "[ok] Claude Code: $CLAUDE_BIN"
+fi
+
+# --- Check Claude projects dir ---
+if [ ! -d "$HOME/.claude/projects" ]; then
+  echo "[warn] ~/.claude/projects not found — have you used Claude Code at least once?"
+fi
+
+# --- Init config ---
+if [ -f "$CHAT_MEMORY_DIR/config.json" ]; then
+  echo "[ok] config.json already exists"
+else
+  python3 "$CHAT_MEMORY_DIR/sync.py" --init
+  echo "[ok] config.json created — edit it to set persona_name and user_name"
+fi
+
+# --- Create data directories ---
+mkdir -p "$CHAT_MEMORY_DIR/data/conversations"
+mkdir -p "$CHAT_MEMORY_DIR/data/summaries"
+mkdir -p "$CHAT_MEMORY_DIR/data/journal"
+mkdir -p "$CHAT_MEMORY_DIR/data/insights"
+mkdir -p "$CHAT_MEMORY_DIR/artifacts"
+echo "[ok] Data directories ready"
+
+# --- Install skills ---
+mkdir -p "$SKILLS_DST"
+SKILLS_INSTALLED=0
+for skill in nap sleep morning weekly-retro; do
+  src="$SKILLS_SRC/$skill/SKILL.md"
+  dst="$SKILLS_DST/$skill/SKILL.md"
+  if [ ! -f "$src" ]; then
+    echo "[warn] Skill template not found: $src"
+    continue
+  fi
+  if [ -f "$dst" ]; then
+    echo "[skip] Skill '$skill' already exists at $dst"
+  else
+    mkdir -p "$SKILLS_DST/$skill"
+    cp "$src" "$dst"
+    echo "[ok] Installed skill: $skill"
+    SKILLS_INSTALLED=$((SKILLS_INSTALLED + 1))
+  fi
+done
+
+# --- Generate cron helper scripts ---
+if [ -n "$CLAUDE_BIN" ]; then
+  cat > "$CHAT_MEMORY_DIR/daily-journal.sh" << SCRIPT
+#!/bin/bash
+# Daily journal fallback — runs at 05:00 via launchd
+TODAY=\$(date +%Y-%m-%d)
+JOURNAL_FILE="$CHAT_MEMORY_DIR/data/journal/\${TODAY}.md"
+LOG_FILE="$CHAT_MEMORY_DIR/journal-cron.log"
+log() { echo "[\$(date '+%Y-%m-%d %H:%M:%S')] \$1" >> "\$LOG_FILE"; }
+if [ -f "\$JOURNAL_FILE" ]; then log "Journal for \${TODAY} already exists, skipping."; exit 0; fi
+if ! grep -q "\"\${TODAY}\"" "$CHAT_MEMORY_DIR/data/index.json" 2>/dev/null; then log "No sessions for \${TODAY}, skipping."; exit 0; fi
+log "Generating journal for \${TODAY}..."
+cd "\$HOME"
+$CLAUDE_BIN -p "/sleep" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>> "\$LOG_FILE"
+[ -f "\$JOURNAL_FILE" ] && log "Journal generated." || log "WARNING: journal not created."
+SCRIPT
+  chmod +x "$CHAT_MEMORY_DIR/daily-journal.sh"
+
+  cat > "$CHAT_MEMORY_DIR/weekly-retro.sh" << SCRIPT
+#!/bin/bash
+# Weekly retro fallback — runs Friday via launchd
+FRIDAY=\$(date +%Y-%m-%d)
+INSIGHT_FILE="$CHAT_MEMORY_DIR/data/insights/\${FRIDAY}.md"
+LOG_FILE="$CHAT_MEMORY_DIR/journal-cron.log"
+log() { echo "[\$(date '+%Y-%m-%d %H:%M:%S')] [weekly] \$1" >> "\$LOG_FILE"; }
+if [ -f "\$INSIGHT_FILE" ]; then log "Weekly insight for \${FRIDAY} already exists, skipping."; exit 0; fi
+if [ ! -f "$CHAT_MEMORY_DIR/data/index.json" ]; then log "No index.json, skipping."; exit 0; fi
+log "Generating weekly retro for \${FRIDAY}..."
+cd "\$HOME"
+$CLAUDE_BIN -p "/weekly-retro" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>> "\$LOG_FILE"
+[ -f "\$INSIGHT_FILE" ] && log "Weekly insight generated." || log "WARNING: insight not created."
+SCRIPT
+  chmod +x "$CHAT_MEMORY_DIR/weekly-retro.sh"
+  echo "[ok] Cron helper scripts generated"
+fi
+
+# --- First sync ---
+echo ""
+echo "Running first sync..."
+python3 "$CHAT_MEMORY_DIR/sync.py"
+
+# --- Optional: macOS LaunchAgent ---
+echo ""
+if [ "$(uname)" = "Darwin" ]; then
+  read -p "Install as macOS auto-start service? (y/N) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    python3 "$CHAT_MEMORY_DIR/sync.py" --install
+    echo "[ok] LaunchAgent installed"
+  else
+    echo "[skip] No auto-start — run manually: python3 sync.py --serve"
+  fi
+fi
+
+# --- Done ---
+echo ""
+echo "=== Setup complete! ==="
+echo ""
+echo "Next steps:"
+echo "  1. Edit config.json to set your persona_name and user_name"
+echo "  2. Start the viewer: python3 sync.py --serve"
+echo "  3. In Claude Code, try: /nap, /morning, /sleep"
+echo ""
+echo "To personalize your skills, tell Claude:"
+echo '  "Help me customize my Chat Memory skills in ~/.claude/skills/"'
