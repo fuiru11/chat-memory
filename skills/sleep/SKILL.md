@@ -18,14 +18,15 @@ Check if `~/chat-memory/data/journal/{YYYY-MM-DD}.md` already exists.
 
 ## Step 2. Gather Today's Material
 
-Read all available data for today:
+Read all available data:
 
 1. **Yesterday's journal** — Read the most recent journal in `data/journal/` for continuity. Did you follow through on yesterday's actions?
-2. **Today's summaries** — Read `~/chat-memory/data/index.json` to find today's sessions, then read their summary files from `data/summaries/`.
-3. **Today's highlights** — Read `~/chat-memory/data/highlights.json` and filter for today's entries.
-4. **Your memory files** — Read any relevant persona or memory files you maintain (e.g., in `~/.claude/projects/*/memory/`).
+2. **Find uncovered sessions** — Read `~/chat-memory/data/index.json` for all sessions. Then scan recent journals' frontmatter (`sessions: [...]`) to collect already-covered session IDs. Any session NOT in any journal's `sessions` list is uncovered — include those in today's journal too, even if they're from a previous day. This handles time-zone gaps and late-night sessions.
+3. **Read summaries** — Read summary files from `data/summaries/` for all sessions you'll cover (today's + any uncovered ones).
+4. **Today's highlights** — Read `~/chat-memory/data/highlights.json` and filter for relevant entries.
+5. **Your memory files** — Read any relevant persona or memory files you maintain (e.g., in `~/.claude/projects/*/memory/`).
 
-If there are NO summaries for today (no conversations happened), write a brief journal noting it was a quiet day, or skip and tell the user.
+If there are NO uncovered sessions and no sessions today, write a brief journal noting it was a quiet day, or skip and tell the user.
 
 ## Step 3. Write the Journal
 
