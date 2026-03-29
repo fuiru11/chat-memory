@@ -76,6 +76,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 
 .highlight-card{border-left:2px solid var(--accent);padding-left:14px}
 .highlight-card .quote{font-size:14px;line-height:1.6;color:#333}
+.highlight-card .quote p{margin:4px 0}
+.highlight-card .quote strong{font-weight:600}
+.highlight-card .quote code{background:rgba(0,0,0,.05);padding:1px 5px;border-radius:4px;font-size:13px}
+.highlight-card.speaker-user{border-left-color:#6dbf67}
+.highlight-card.speaker-assistant{border-left-color:var(--accent)}
 .highlight-card .meta{font-size:11px;color:var(--text-2);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
 
 .artifact-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .15s}
@@ -203,6 +208,7 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
 .j-update .badge{font-size:10px;padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:2px}
 .j-update .badge.new{background:var(--amber-bg);color:var(--amber)}
 .j-update .badge.updated{background:var(--accent-light);color:var(--accent)}
+.j-block.persona{background:#fefce8;border-color:#fde68a}
 
 /* Modal */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:100;align-items:center;justify-content:center}
@@ -213,6 +219,29 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
 .modal-btns{display:flex;gap:10px;justify-content:center}
 .modal-btn{padding:7px 20px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:13px;transition:all .15s}
 .modal-btn.confirm{background:var(--danger);color:#fff;border-color:var(--danger)}
+.modal-lg{max-width:640px;width:92%;text-align:left;max-height:80vh;display:flex;flex-direction:column;position:relative}
+.modal-lg h3{margin-bottom:14px}
+.modal-lg .modal-body{flex:1;overflow-y:auto;padding-right:4px}
+.modal-close{position:absolute;top:14px;right:14px;background:none;border:none;cursor:pointer;color:var(--icon);padding:4px}
+.modal-close:hover{color:var(--text)}
+@keyframes hl-flash{0%,30%{background:#fef08a}100%{background:transparent}}
+.bubble.flash{animation:hl-flash 1.5s ease-out}
+.hl-group-date{font-size:12px;font-weight:500;color:var(--text-2);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.hl-group-date:first-child{margin-top:0}
+.artifact-preview pre{background:#1e1e1e;color:#d4d4d4;padding:14px;border-radius:8px;overflow-x:auto;font-size:13px;font-family:"SF Mono",Monaco,monospace;white-space:pre-wrap;word-break:break-word}
+.artifact-preview .md-content{font-size:14px;line-height:1.7}
+.artifact-preview .md-content p{margin-bottom:8px}
+.artifact-preview .md-content h1{font-size:17px;margin:10px 0 6px;font-weight:600}
+.artifact-preview .md-content h2{font-size:15px;margin:8px 0 5px;font-weight:600}
+.artifact-preview .md-content h3{font-size:14px;margin:6px 0 4px;font-weight:600}
+.artifact-preview .md-content ul,.artifact-preview .md-content ol{padding-left:20px;margin:5px 0}
+.artifact-preview .md-content table{border-collapse:collapse;margin:8px 0;font-size:13px;width:100%}
+.artifact-preview .md-content th,.artifact-preview .md-content td{border:1px solid var(--border);padding:5px 10px;text-align:left}
+.artifact-preview .md-content th{background:#f9fafb;font-weight:500}
+.conv-artifacts{padding:8px 24px;background:var(--accent-light);border-bottom:1px solid #dbeafe;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.conv-artifacts .label{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;font-weight:500}
+.conv-artifact-chip{font-size:12px;padding:3px 10px;border-radius:6px;background:#fff;border:1px solid #dbeafe;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:border-color .15s}
+.conv-artifact-chip:hover{border-color:var(--accent)}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px}
@@ -295,6 +324,7 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
             </div>
           </div>
           <div class="summary-panel" id="summaryPanel"></div>
+          <div id="convArtifacts"></div>
           <div class="chat-area" id="chatArea"><div class="empty-state">Select a conversation</div></div>
         </div>
       </div>
@@ -313,6 +343,39 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
   </div>
 </div>
 
+<!-- Highlights View All modal -->
+<div class="modal-bg" id="hlModal">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="document.getElementById('hlModal').classList.remove('show')">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <h3>All Highlights</h3>
+    <div class="modal-body" id="hlModalBody"></div>
+  </div>
+</div>
+
+<!-- Artifact preview modal -->
+<div class="modal-bg" id="artModal">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="document.getElementById('artModal').classList.remove('show')">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <h3 id="artModalTitle"></h3>
+    <div class="modal-body artifact-preview" id="artModalBody"></div>
+  </div>
+</div>
+
+<!-- Artifacts View All modal -->
+<div class="modal-bg" id="artListModal">
+  <div class="modal modal-lg">
+    <button class="modal-close" onclick="document.getElementById('artListModal').classList.remove('show')">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <h3>All Artifacts</h3>
+    <div class="modal-body" id="artListModalBody"></div>
+  </div>
+</div>
+
 <!-- Delete modal -->
 <div class="modal-bg" id="delModal">
   <div class="modal">
@@ -328,7 +391,7 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
 <script>
 // State
 let S = {
-  index: null, tags: {}, highlights: [], artifacts: [],
+  index: null, tags: {}, highlights: [], artifacts: [], insight: null,
   activeTab: "home", activeSession: null,
   convCache: {}, searchQuery: "", convSearch: "",
   selectedDate: null, activeTags: new Set(),
@@ -347,18 +410,32 @@ async function fetchJSON(url) {
 }
 
 async function init() {
-  const [index, tags, highlights, artifacts, deleted] = await Promise.all([
+  const [index, tags, highlights, artifacts, deleted, insight] = await Promise.all([
     fetchJSON("data/index.json"),
     fetchJSON("data/tags.json"),
     fetchJSON("data/highlights.json"),
     fetchJSON("data/artifacts.json"),
     fetchJSON("data/deleted.json"),
+    fetchJSON("data/latest-insight.json"),
   ]);
   S.index = index || {sessions:[]};
   S.tags = tags || {};
   S.highlights = highlights || [];
   S.artifacts = artifacts || [];
+  S.insight = insight;
   S.deleted = new Set(deleted || []);
+  // Merge any localStorage fallback deletes, then sync to API
+  try{
+    const ld=JSON.parse(localStorage.getItem("chatMemoryDeleted")||"[]");
+    if(ld.length){
+      ld.forEach(id=>S.deleted.add(id));
+      // Try to persist each to API
+      for(const id of ld){
+        try{const r=await fetch("/api/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});if(r.ok){}}catch(e){}
+      }
+      localStorage.removeItem("chatMemoryDeleted");
+    }
+  }catch(e){}
 
   // Filter deleted
   S.index.sessions = S.index.sessions.filter(s => !S.deleted.has(s.id));
@@ -387,6 +464,144 @@ function fmtDate(ts){if(!ts)return"";const d=new Date(ts);return`${d.getFullYear
 function fmtShortDate(ts){if(!ts)return"";const d=new Date(ts);return`${d.getMonth()+1}月${d.getDate()}日`}
 function timeDivider(a,b){return a&&b&&(new Date(b)-new Date(a))>120000}
 function typeLabel(t){return{insight:"洞察",perspective_shift:"观点转变",good_metaphor:"好比喻",reflection:"反思",bookmark:"收藏"}[t]||t}
+function fileExt(f){return(f.match(/\.(\w+)$/)||[])[1]||""}
+function renderHighlightCard(hl){
+  return`<div class="card highlight-card speaker-${hl.speaker||'assistant'}" style="margin-bottom:8px;cursor:pointer" onclick="jumpToHighlight('${hl.id}')">
+    <div class="meta"><span>${esc(hl.timestamp?.slice(0,10)||'')}</span><span class="type-pill ${hl.type}">${typeLabel(hl.type)}</span></div>
+    <div class="quote">${marked.parse(hl.text)}</div>
+    ${hl.context?`<div style="font-size:12px;color:var(--text-2);margin-top:6px;line-height:1.4">${esc(hl.context)}</div>`:''}
+  </div>`;
+}
+
+// ===== Scroll to message & highlight flash =====
+function flashBubble(el){
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  const b=el.querySelector('.bubble')||el;
+  b.classList.add('flash');
+  b.addEventListener('animationend',()=>b.classList.remove('flash'),{once:true});
+}
+
+function scrollToMessage(messageTs,fallbackText){
+  // Primary: match by timestamp (robust)
+  if(messageTs){
+    const el=document.querySelector(`#chatArea .message[data-ts="${messageTs}"]`);
+    if(el){flashBubble(el);return}
+  }
+  // Fallback: text match (for legacy highlights without messageTs)
+  if(fallbackText){
+    const snippet=fallbackText.slice(0,60);
+    const msgs=document.querySelectorAll('#chatArea .message');
+    for(const m of msgs){
+      if(m.textContent.includes(snippet)){flashBubble(m);return}
+    }
+  }
+}
+
+// ===== Highlight jump =====
+async function jumpToHighlight(hlId){
+  const hl=S.highlights.find(h=>h.id===hlId);
+  if(!hl)return;
+  document.querySelectorAll('.modal-bg.show').forEach(m=>m.classList.remove('show'));
+  S.activeSession=hl.sessionId;
+  switchTab('conversations');
+  renderConvList();
+  await renderConv();
+  scrollToMessage(hl.messageTs,hl.text);
+}
+
+// ===== Highlights View All =====
+function showAllHighlights(){
+  const grouped={};
+  for(const hl of S.highlights){
+    const d=hl.timestamp?.slice(0,10)||'Unknown';
+    (grouped[d]=grouped[d]||[]).push(hl);
+  }
+  let h='';
+  for(const date of Object.keys(grouped).sort().reverse()){
+    h+=`<div class="hl-group-date">${date}</div>`;
+    for(const hl of grouped[date]){
+      h+=renderHighlightCard(hl);
+    }
+  }
+  document.getElementById('hlModalBody').innerHTML=h||'<div style="color:var(--text-2);font-size:13px">No highlights yet</div>';
+  document.getElementById('hlModal').classList.add('show');
+}
+
+// ===== Artifact preview =====
+async function previewArtifact(filename,title){
+  const ext=fileExt(filename);
+  // HTML files open in new tab
+  if(ext==='html'){window.open('artifacts/'+filename,'_blank');return}
+  // Close other modals
+  document.querySelectorAll('.modal-bg.show').forEach(m=>m.classList.remove('show'));
+  document.getElementById('artModalTitle').textContent=title||filename;
+  document.getElementById('artModalBody').innerHTML='<div style="color:var(--text-2)">Loading...</div>';
+  document.getElementById('artModal').classList.add('show');
+  // Find related session
+  const art=S.artifacts.find(a=>a.filename===filename);
+  const session=art?S.index.sessions.find(s=>s.id===art.sessionId):null;
+  const sessionLink=session?`<div style="margin-bottom:12px;padding:8px 12px;background:var(--card-hover);border-radius:8px;font-size:12px;display:flex;align-items:center;justify-content:space-between">
+    <span style="color:var(--text-2)">From: <strong style="color:var(--text)">${esc(session.title)}</strong> <span style="color:var(--text-3)">${session.date}</span></span>
+    <a style="color:var(--accent);cursor:pointer;text-decoration:none" onclick="document.getElementById('artModal').classList.remove('show');jumpToArtifactMsg('${art.sessionId}','${art.messageTs||''}','${esc(art.filename)}')">View conversation</a>
+  </div>`:'';
+  try{
+    const r=await fetch('artifacts/'+filename);
+    if(!r.ok)throw new Error('Not found');
+    const text=await r.text();
+    if(ext==='md'){
+      document.getElementById('artModalBody').innerHTML=sessionLink+`<div class="md-content">${marked.parse(text)}</div>`;
+    }else{
+      document.getElementById('artModalBody').innerHTML=sessionLink+`<pre>${esc(text)}</pre>`;
+    }
+  }catch(e){
+    document.getElementById('artModalBody').innerHTML=sessionLink+`<div style="color:var(--danger)">Could not load file: ${esc(filename)}</div>`;
+  }
+}
+
+// ===== Artifacts View All =====
+function showAllArtifacts(){
+  let h='';
+  if(!S.artifacts.length){h='<div style="color:var(--text-2);font-size:13px">No artifacts yet</div>';}
+  else for(const a of S.artifacts){
+    h+=`<div class="artifact-row" style="margin-bottom:6px" onclick="previewArtifact('${esc(a.filename)}','${esc(a.title||a.filename)}')">
+      <svg class="icon" viewBox="0 0 24 24" style="color:var(--icon);flex-shrink:0"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div class="info"><div class="name">${esc(a.filename||'')}</div><div class="desc">${esc(a.title||'')}</div></div>
+      <span class="date">${fmtShortDate(a.createdAt)}</span>
+    </div>`;
+  }
+  document.getElementById('artListModalBody').innerHTML=h;
+  document.getElementById('artListModal').classList.add('show');
+}
+
+// ===== Jump to artifact source message =====
+async function jumpToArtifactMsg(sessionId,messageTs,filename){
+  S.activeSession=sessionId;
+  switchTab('conversations');
+  renderConvList();
+  await renderConv();
+  scrollToMessage(messageTs,filename);
+}
+
+// ===== Conversation artifacts panel =====
+function renderConvArtifacts(sessionId){
+  const el=document.getElementById('convArtifacts');
+  const arts=S.artifacts.filter(a=>a.sessionId===sessionId);
+  if(!arts.length){el.innerHTML='';el.className='';return}
+  el.className='conv-artifacts';
+  el.innerHTML=`<span class="label">Artifacts</span>`+arts.map(a=>
+    `<span class="conv-artifact-chip" onclick="previewArtifact('${esc(a.filename)}','${esc(a.title||a.filename)}')">
+      <svg class="icon icon-sm" viewBox="0 0 24 24" style="color:var(--icon)"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      ${esc(a.filename)}
+    </span>`
+  ).join('');
+}
+
+// ===== Modal backdrop close =====
+['hlModal','artModal','artListModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{
+    if(e.target.classList.contains('modal-bg'))e.target.classList.remove('show');
+  });
+});
 
 // ===== Tab switching =====
 document.querySelectorAll(".nav-tab").forEach(tab => {
@@ -408,38 +623,53 @@ function renderHome() {
 
   let h = "";
 
-  // Weekly Insight placeholder
-  h += `<div class="insight-card">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <h2>Weekly Insight</h2><span class="date" style="font-size:12px;color:var(--text-2)">This week</span>
-    </div>
-    <div class="body"><p style="color:var(--text-2);font-style:italic">Weekly insight will appear here after your first week of conversations.</p></div>
-    <div class="insight-stats">
-      <div><div class="stat-val">${sessions.length}</div><div class="stat-label">conversations</div></div>
-      <div><div class="stat-val">${Object.keys(S.tags).length}</div><div class="stat-label">topics</div></div>
-      <div><div class="stat-val">${S.highlights.length}</div><div class="stat-label">highlights</div></div>
-    </div>
-  </div>`;
+  // Weekly Insight
+  const ins = S.insight;
+  if (ins) {
+    const themes = (ins.themes||[]).map(t=>`<span class="tag-pill">${esc(t)}</span>`).join("");
+    const st = ins.stats||{};
+    h += `<div class="insight-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>${esc(ins.title||'Weekly Insight')}</h2><span class="date">${esc(ins.week||ins.date||'')}</span>
+      </div>
+      <div class="body">${marked.parse(ins.body||'')}</div>
+      ${themes?`<div class="themes">${themes}</div>`:''}
+      <div class="insight-stats">
+        <div><div class="stat-val">${st.conversations||sessions.length}</div><div class="stat-label">conversations</div></div>
+        <div><div class="stat-val">${st.topics||Object.keys(S.tags).length}</div><div class="stat-label">topics</div></div>
+        <div><div class="stat-val">${st.highlights||S.highlights.length}</div><div class="stat-label">highlights</div></div>
+      </div>
+    </div>`;
+  } else {
+    h += `<div class="insight-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Weekly Insight</h2><span class="date">This week</span>
+      </div>
+      <div class="body"><p style="color:var(--text-2);font-style:italic">Weekly insight will appear here after your first retro.</p></div>
+      <div class="insight-stats">
+        <div><div class="stat-val">${sessions.length}</div><div class="stat-label">conversations</div></div>
+        <div><div class="stat-val">${Object.keys(S.tags).length}</div><div class="stat-label">topics</div></div>
+        <div><div class="stat-val">${S.highlights.length}</div><div class="stat-label">highlights</div></div>
+      </div>
+    </div>`;
+  }
 
   // Highlights
   if (recentHL.length) {
-    h += `<div class="section-header"><h3>Highlights</h3><a onclick="switchTab('conversations')">View all</a></div>`;
+    h += `<div class="section-header"><h3>Highlights</h3><a onclick="showAllHighlights()">View all</a></div>`;
     h += `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">`;
     for (const hl of recentHL) {
-      h += `<div class="card highlight-card">
-        <div class="meta"><span>${esc(hl.timestamp?.slice(0,10)||"")}</span><span class="type-pill ${hl.type}">${typeLabel(hl.type)}</span></div>
-        <div class="quote">${esc(hl.text)}</div>
-      </div>`;
+      h += renderHighlightCard(hl);
     }
     h += `</div>`;
   }
 
   // Artifacts
   if (recentArt.length) {
-    h += `<div class="section-header"><h3>Recent Artifacts</h3></div>`;
+    h += `<div class="section-header"><h3>Recent Artifacts</h3><a onclick="showAllArtifacts()">View all</a></div>`;
     h += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">`;
     for (const a of recentArt) {
-      h += `<div class="artifact-row">
+      h += `<div class="artifact-row" onclick="previewArtifact('${esc(a.filename)}','${esc(a.title||a.filename)}')">
         <svg class="icon" viewBox="0 0 24 24" style="color:var(--icon);flex-shrink:0"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         <div class="info"><div class="name">${esc(a.filename||"")}</div><div class="desc">${esc(a.title||"")}</div></div>
         <span class="date">${fmtShortDate(a.createdAt)}</span>
@@ -567,7 +797,7 @@ async function renderConv(){
   const hdr=document.getElementById("convHeader");
   const area=document.getElementById("chatArea");
   const sp=document.getElementById("summaryPanel");
-  if(!S.activeSession){hdr.style.display="none";sp.classList.remove("show");area.innerHTML=`<div class="empty-state">Select a conversation</div>`;return}
+  if(!S.activeSession){hdr.style.display="none";sp.classList.remove("show");area.innerHTML=`<div class="empty-state">Select a conversation</div>`;document.getElementById("convArtifacts").innerHTML="";return}
 
   const conv=await loadConversation(S.activeSession);
   const session=S.index.sessions.find(s=>s.id===S.activeSession);
@@ -579,6 +809,7 @@ async function renderConv(){
   document.getElementById("convTags").innerHTML=(session?.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
 
   renderSummary();
+  renderConvArtifacts(S.activeSession);
 
   const q=S.convSearch;
   let h="",prev=null;
@@ -586,7 +817,7 @@ async function renderConv(){
     if(timeDivider(prev,m.timestamp))h+=`<div class="time-divider">${fmtTime(m.timestamp)}</div>`;
     const content=m.role==="assistant"?(q?hlHtml(marked.parse(m.text),q):marked.parse(m.text)):hl(m.text,q);
     const tools=(m.tools||[]).map(t=>`<span class="tool-badge">${esc(t)}</span>`).join("");
-    h+=`<div class="message ${m.role}"><div class="bubble">${content}</div>${tools?`<div class="tool-badges">${tools}</div>`:""}<div class="msg-time">${fmtTime(m.timestamp)}</div></div>`;
+    h+=`<div class="message ${m.role}" data-ts="${m.timestamp||''}"><div class="bubble">${content}</div>${tools?`<div class="tool-badges">${tools}</div>`:""}<div class="msg-time">${fmtTime(m.timestamp)}</div></div>`;
     prev=m.timestamp;
   }
   area.innerHTML=h;area.scrollTop=0;
@@ -625,7 +856,10 @@ document.getElementById("delConfirm").addEventListener("click",async()=>{
   if(S.activeSession===idToDelete){S.activeSession=null;renderConv()}
   document.getElementById("delModal").classList.remove("show");S.deletingId=null;
   // Persist via API, fallback to localStorage
-  try{await fetch("/api/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:idToDelete})})}catch(e){
+  try{
+    const r=await fetch("/api/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:idToDelete})});
+    if(!r.ok)throw new Error('API error');
+  }catch(e){
     localStorage.setItem("chatMemoryDeleted",JSON.stringify([...S.deleted]));
   }
   renderTags();renderConvList();renderCalendar();renderHome();
@@ -638,12 +872,13 @@ async function renderJournal(){
   const container = document.getElementById("journalEntries");
   // Journal entries are markdown files in data/journal/
   // We'll try to fetch a few recent ones
-  const today = new Date().toISOString().slice(0,10);
+  function localDate(d){return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")}`}
+  const today = localDate(new Date());
   const entries = [];
   // Try last 7 days
   for(let i=0;i<7;i++){
     const d=new Date();d.setDate(d.getDate()-i);
-    const ds=d.toISOString().slice(0,10);
+    const ds=localDate(d);
     try{
       const r=await fetch(`data/journal/${ds}.md`);
       if(r.ok){entries.push({date:ds,content:await r.text(),isToday:i===0})}
@@ -659,10 +894,51 @@ async function renderJournal(){
   }
 
   container.innerHTML = entries.map(e => {
-    const body = e.content.replace(/^---[\s\S]*?---\n*/,""); // strip frontmatter
+    const body = e.content.replace(/^---[\s\S]*?---\n*/,"");
+    // Split into sections by ## headings
+    const sections = [];
+    body.split(/^## /m).forEach((s,i) => {
+      if(i===0) return; // skip content before first ##
+      const nl = s.indexOf("\n");
+      sections.push({title: s.slice(0,nl).trim(), content: s.slice(nl+1).trim()});
+    });
+
+    let blocks = "";
+    for(const sec of sections) {
+      const t = sec.title;
+      if(t === "What I Learned") {
+        // Render +/- items with colored indicators
+        const items = sec.content.split("\n").filter(l=>l.trim());
+        const html = items.map(l => {
+          const line = l.replace(/^[\+\-]\s*/,"");
+          if(l.trim().startsWith("+")) return `<div class="j-learn"><span class="plus">+</span><span>${esc(line)}</span></div>`;
+          if(l.trim().startsWith("-")) return `<div class="j-learn"><span class="minus">-</span><span>${esc(line)}</span></div>`;
+          return `<div class="j-learn"><span>&nbsp;</span><span>${esc(l)}</span></div>`;
+        }).join("");
+        blocks += `<div class="j-block"><h4>${esc(t)}</h4>${html}</div>`;
+      } else if(t === "Actions") {
+        const items = sec.content.split("\n").filter(l=>l.trim());
+        const html = items.map(l => {
+          const line = l.replace(/^-\s*/,"");
+          return `<div class="j-learn"><span class="plus" style="color:var(--accent)">→</span><span>${esc(line)}</span></div>`;
+        }).join("");
+        blocks += `<div class="j-block"><h4>${esc(t)}</h4>${html}</div>`;
+      } else if(t === "Persona Update") {
+        const items = sec.content.split("\n").filter(l=>l.trim());
+        const html = items.map(l => {
+          const m = l.match(/\[(\w+)\]\s*(.*)/);
+          if(m) return `<div class="j-update"><span class="badge ${m[1]}">${m[1]}</span><span>${esc(m[2])}</span></div>`;
+          return `<div style="font-size:13px;color:#78350f">${esc(l.replace(/^-\s*/,""))}</div>`;
+        }).join("");
+        blocks += `<div class="j-block persona"><h4>${esc(t)}</h4>${html}</div>`;
+      } else {
+        blocks += `<div class="j-block"><h4>${esc(t)}</h4><div class="jtext">${marked.parse(sec.content)}</div></div>`;
+      }
+    }
+
     return `<div class="j-entry">
       <div class="j-dot"><div class="dot ${e.isToday?"today":"past"}"></div><span>${e.date}</span>${e.isToday?`<span class="when">Today</span>`:""}</div>
-      <div class="j-timeline">${marked.parse(body)}</div>
+      <div class="j-timeline">${blocks}</div>
     </div>`;
   }).join("");
 }

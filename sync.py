@@ -17,7 +17,7 @@ import os
 import sys
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
@@ -61,6 +61,15 @@ def init_config():
     CONFIG_FILE.write_text(json.dumps(default, indent=2, ensure_ascii=False))
     print(f"Created {CONFIG_FILE}")
     print("Edit it to set your preferences, then run: python3 sync.py --serve")
+
+
+def utc_to_local_date(ts):
+    """Convert UTC ISO timestamp to local date string (YYYY-MM-DD)."""
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt.astimezone().strftime("%Y-%m-%d")
+    except Exception:
+        return ts[:10] if ts else ""
 
 
 # ===== JSONL Parsing =====
@@ -172,7 +181,7 @@ def parse_jsonl(filepath):
                 timestamp = record.get("timestamp", "")
 
                 if role == "user":
-                    if is_system_message(content):
+                    if record.get("isMeta") or is_system_message(content):
                         continue
                     text = extract_user_text(content)
                     if not text:
@@ -242,7 +251,7 @@ def auto_summary(conv):
             break
     return {
         "sessionId": conv["sessionId"],
-        "date": conv["startTime"][:10] if conv["startTime"] else "",
+        "date": utc_to_local_date(conv["startTime"]) if conv["startTime"] else "",
         "tags": [],
         "title": first_msg or "Untitled",
         "one_line": first_msg or "",

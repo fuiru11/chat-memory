@@ -2,12 +2,16 @@
 data/conversations/
 data/summaries/
 data/journal/
+data/insights/
 data/sync-state.json
 data/deleted.json
 data/highlights.json
 data/artifacts.json
 data/index.json
 data/tags.json
+data/latest-insight.json
+data/recent-summaries.md
+data/.highlights-draft.jsonl
 data/data.js
 
 # Artifacts (personal research/files)
@@ -22,6 +26,11 @@ __pycache__/
 
 # Logs
 server.log
+journal-cron.log
+
+# Local scripts (user-specific paths)
+daily-journal.sh
+weekly-retro.sh
 
 # Generated plist (user-specific paths)
 com.chatmemory.server.plist
