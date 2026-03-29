@@ -1,0 +1,34 @@
+# Personal conversation data
+data/conversations/
+data/summaries/
+data/journal/
+data/sync-state.json
+data/deleted.json
+data/highlights.json
+data/artifacts.json
+data/index.json
+data/tags.json
+data/data.js
+
+# Artifacts (personal research/files)
+artifacts/
+
+# Config (contains local paths)
+config.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+server.log
+
+# Generated plist (user-specific paths)
+com.chatmemory.server.plist
+
+# Legacy
+viewer.html
+wireframe.html
+
+# OS
+.DS_Store

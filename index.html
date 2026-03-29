@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Memory</title>
+<script src="marked.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f7f7f8;--surface:#fff;--card-hover:#f5f7fa;--card-active:#edf2f7;
+  --user-bubble:#dcf8c6;--assistant-bubble:#fff;
+  --text:#1a1a1a;--text-2:#8b8b8b;--text-3:#bbb;
+  --border:#eaeaea;--accent:#3b82f6;--accent-light:#eff6ff;
+  --tag-bg:#f0f4f8;--tag-text:#5b7083;--tag-active-bg:#3b82f6;--tag-active-text:#fff;
+  --tool-bg:#f3f4f6;--tool-text:#9ca3af;
+  --danger:#ef4444;--danger-bg:#fef2f2;
+  --green:#059669;--green-bg:#ecfdf5;
+  --amber:#d97706;--amber-bg:#fef3c7;
+  --purple:#7c3aed;--purple-bg:#ede9fe;
+  --icon:#9ca3af;--icon-hover:#6b7280;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+.icon{width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+.icon-sm{width:15px;height:15px}
+
+/* Nav */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:48px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.nav-left{display:flex;align-items:center;gap:20px}
+.nav h1{font-size:14px;font-weight:600;letter-spacing:-0.01em}
+.nav-tabs{display:flex;gap:2px}
+.nav-tab{padding:6px 14px;font-size:13px;border-radius:6px;cursor:pointer;color:var(--text-2);transition:all .15s;user-select:none}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--text);background:var(--card-hover);font-weight:500}
+.nav-search{padding:5px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:200px;background:var(--bg);outline:none;color:var(--text)}
+.nav-search:focus{border-color:var(--accent)}
+
+/* Layout */
+.app{display:flex;flex-direction:column;height:100vh}
+.content{flex:1;overflow:hidden}
+.tab-page{display:none;height:100%;width:100%}
+.tab-page.active{display:flex}
+
+/* Shared */
+.icon-btn{width:32px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--icon);transition:all .15s;flex-shrink:0}
+.icon-btn:hover{color:var(--icon-hover);border-color:#d1d5db}
+.icon-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.section-header h3{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em}
+.section-header a{font-size:12px;color:var(--accent);text-decoration:none;cursor:pointer}
+.section-header a:hover{text-decoration:underline}
+.tag-pill{font-size:11px;padding:1px 8px;border-radius:8px;background:var(--tag-bg);color:var(--tag-text)}
+.type-pill{font-size:10px;padding:2px 8px;border-radius:8px}
+.type-pill.insight{background:var(--purple-bg);color:var(--purple)}
+.type-pill.perspective_shift{background:var(--amber-bg);color:var(--amber)}
+.type-pill.good_metaphor{background:var(--green-bg);color:var(--green)}
+.type-pill.reflection{background:var(--accent-light);color:var(--accent)}
+.type-pill.bookmark{background:var(--tag-bg);color:var(--tag-text)}
+
+/* ===== HOME TAB ===== */
+.home-scroll{flex:1;overflow-y:auto;padding:28px 24px}
+.home-inner{max-width:780px;margin:0 auto}
+
+.insight-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:20px}
+.insight-card h2{font-size:14px;font-weight:600;margin-bottom:4px}
+.insight-card .date{font-size:12px;color:var(--text-2)}
+.insight-card .body{font-size:14px;line-height:1.7;color:#4a4a4a;margin:14px 0}
+.insight-card .body p{margin-bottom:8px}
+.insight-card .themes{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.insight-stats{display:flex;gap:24px;margin-top:14px;padding-top:14px;border-top:1px solid #f0f0f0}
+.stat-val{font-size:20px;font-weight:600}
+.stat-label{font-size:11px;color:var(--text-2);margin-top:1px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;cursor:pointer;transition:border-color .15s}
+.card:hover{border-color:#d1d5db}
+
+.highlight-card{border-left:2px solid var(--accent);padding-left:14px}
+.highlight-card .quote{font-size:14px;line-height:1.6;color:#333}
+.highlight-card .meta{font-size:11px;color:var(--text-2);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+
+.artifact-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .15s}
+.artifact-row:hover{border-color:#d1d5db}
+.artifact-row .info{flex:1}
+.artifact-row .name{font-size:13px;font-weight:500}
+.artifact-row .desc{font-size:11px;color:var(--text-2)}
+.artifact-row .date{font-size:11px;color:var(--text-3);flex-shrink:0}
+
+.recent-row{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:background .1s}
+.recent-row:hover{background:var(--card-hover)}
+.recent-row .rdate{font-size:12px;color:var(--text-3);width:54px;flex-shrink:0}
+.recent-row .rtitle{font-size:13px;flex:1}
+
+/* ===== CONVERSATIONS TAB ===== */
+.conv-page{display:flex;height:100%;width:100%}
+.conv-sidebar{width:340px;min-width:340px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.conv-sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border)}
+.conv-sidebar-header .search-row{display:flex;gap:8px}
+.conv-sidebar-header input{flex:1;padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);outline:none}
+.conv-sidebar-header input:focus{border-color:var(--accent)}
+
+.calendar-panel{display:none;padding:10px 16px;border-bottom:1px solid var(--border);background:#fafafa}
+.calendar-panel.show{display:block}
+.cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.cal-nav button{background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px;color:var(--text-2);font-size:13px}
+.cal-nav button:hover{background:var(--border);color:var(--text)}
+.cal-nav .label{font-size:13px;font-weight:500}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.cal-grid .dh{font-size:11px;color:var(--text-3);padding:3px 0}
+.cal-grid .d{font-size:12px;padding:3px 0;border-radius:4px;color:var(--text-3)}
+.cal-grid .d.has{color:var(--text);cursor:pointer;font-weight:500}
+.cal-grid .d.has:hover{background:var(--card-hover)}
+.cal-grid .d.has::after{content:"";display:block;width:4px;height:4px;border-radius:50%;background:var(--accent);margin:1px auto 0}
+.cal-grid .d.sel{background:var(--accent);color:#fff}
+.cal-grid .d.sel::after{background:#fff}
+.cal-grid .d.om{opacity:.25}
+.cal-clear{text-align:center;margin-top:6px}
+.cal-clear button{font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer}
+
+.tag-filters{padding:8px 16px;display:flex;flex-wrap:wrap;gap:5px;border-bottom:1px solid var(--border)}
+.tag-chip{padding:2px 10px;border-radius:12px;font-size:12px;cursor:pointer;background:var(--tag-bg);color:var(--tag-text);transition:all .15s;user-select:none}
+.tag-chip:hover{opacity:.8}
+.tag-chip.active{background:var(--tag-active-bg);color:var(--tag-active-text)}
+
+.conv-list{flex:1;overflow-y:auto;padding:4px 8px}
+.conv-card{padding:12px;border-radius:8px;cursor:pointer;margin-bottom:2px;transition:background .1s}
+.conv-card:hover{background:var(--card-hover)}
+.conv-card.active{background:var(--card-active)}
+.conv-card .cdate{font-size:11px;color:var(--text-3);margin-bottom:3px}
+.conv-card .ctitle{font-size:14px;font-weight:500;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.conv-card .cprev{font-size:12px;color:var(--text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.conv-card .ctags{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap}
+
+.conv-main{flex:1;display:flex;flex-direction:column;background:var(--bg)}
+.conv-header{padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
+.conv-header-left{flex:1}
+.conv-header h2{font-size:15px;font-weight:600}
+.conv-header .cmeta{font-size:12px;color:var(--text-2);margin-top:3px}
+.conv-header .chtags{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap}
+.conv-actions{display:flex;gap:6px;margin-left:16px;position:relative}
+
+.dropdown-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.08);min-width:140px;z-index:50;overflow:hidden}
+.dropdown-menu.show{display:block}
+.dropdown-item{padding:8px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);transition:background .1s}
+.dropdown-item:hover{background:var(--card-hover)}
+.dropdown-item.danger{color:var(--danger)}
+.dropdown-item.danger:hover{background:var(--danger-bg)}
+
+.summary-panel{display:none;padding:14px 24px;background:#fefce8;border-bottom:1px solid #fde68a;max-height:280px;overflow-y:auto}
+.summary-panel.show{display:block}
+.summary-panel h4{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.summary-panel .sbody{font-size:13px;line-height:1.6}
+
+.chat-area{flex:1;overflow-y:auto;padding:16px 24px}
+.empty-state{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-3);font-size:14px}
+
+.message{margin-bottom:14px;display:flex;flex-direction:column}
+.message.user{align-items:flex-end}
+.message.assistant{align-items:flex-start}
+.bubble{max-width:70%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.6;word-wrap:break-word}
+.message.user .bubble{background:var(--user-bubble);border-top-right-radius:4px;white-space:pre-wrap}
+.message.assistant .bubble{background:var(--assistant-bubble);border-top-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.message.assistant .bubble h1{font-size:17px;margin:10px 0 6px;font-weight:600}
+.message.assistant .bubble h2{font-size:15px;margin:8px 0 5px;font-weight:600}
+.message.assistant .bubble h3{font-size:14px;margin:6px 0 4px;font-weight:600}
+.message.assistant .bubble p{margin:5px 0}
+.message.assistant .bubble ul,.message.assistant .bubble ol{padding-left:20px;margin:5px 0}
+.message.assistant .bubble li{margin-bottom:2px}
+.message.assistant .bubble code{background:rgba(0,0,0,.05);padding:1px 5px;border-radius:4px;font-size:13px;font-family:"SF Mono",Monaco,monospace}
+.message.assistant .bubble pre{background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0;font-size:13px}
+.message.assistant .bubble pre code{background:none;padding:0;color:inherit}
+.message.assistant .bubble table{border-collapse:collapse;margin:8px 0;font-size:13px;width:100%}
+.message.assistant .bubble th,.message.assistant .bubble td{border:1px solid var(--border);padding:5px 10px;text-align:left}
+.message.assistant .bubble th{background:#f9fafb;font-weight:500}
+.message.assistant .bubble blockquote{border-left:2px solid var(--accent);padding-left:12px;margin:8px 0;color:var(--text-2)}
+.message.assistant .bubble strong{font-weight:600}
+.msg-time{font-size:11px;color:var(--text-3);margin-top:3px;padding:0 4px}
+.tool-badges{display:flex;gap:4px;margin-top:3px;flex-wrap:wrap}
+.tool-badge{font-size:10px;padding:1px 6px;border-radius:6px;background:var(--tool-bg);color:var(--tool-text)}
+.time-divider{text-align:center;margin:18px 0;font-size:11px;color:var(--text-3)}
+mark{background:#fef08a;padding:0 2px;border-radius:2px}
+
+/* ===== JOURNAL TAB ===== */
+.journal-scroll{flex:1;overflow-y:auto;padding:28px 24px}
+.journal-inner{max-width:660px;margin:0 auto}
+.journal-inner>h2{font-size:17px;font-weight:600;margin-bottom:4px}
+.journal-inner>.sub{font-size:13px;color:var(--text-2);margin-bottom:28px}
+.j-entry{margin-bottom:28px}
+.j-dot{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.j-dot .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.j-dot .dot.today{background:var(--accent)}
+.j-dot .dot.past{background:#d1d5db}
+.j-dot span{font-size:13px;font-weight:500}
+.j-dot .when{font-size:12px;color:var(--text-3)}
+.j-timeline{margin-left:3px;border-left:1px solid var(--border);padding-left:20px;margin-left:3px}
+.j-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:10px}
+.j-block h4{font-size:12px;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.j-block .jtext{font-size:14px;line-height:1.7;color:#333}
+.j-block .jtext p{margin-bottom:8px}
+.j-learn{display:flex;gap:8px;font-size:13px;line-height:1.5;margin-bottom:4px}
+.j-learn .plus{color:var(--green);flex-shrink:0}
+.j-learn .minus{color:var(--danger);flex-shrink:0}
+.j-update{display:flex;gap:8px;font-size:13px;margin-bottom:4px;line-height:1.4}
+.j-update .badge{font-size:10px;padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:2px}
+.j-update .badge.new{background:var(--amber-bg);color:var(--amber)}
+.j-update .badge.updated{background:var(--accent-light);color:var(--accent)}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:100;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.12)}
+.modal h3{font-size:15px;margin-bottom:8px;font-weight:600}
+.modal p{font-size:13px;color:var(--text-2);margin-bottom:18px;line-height:1.5}
+.modal-btns{display:flex;gap:10px;justify-content:center}
+.modal-btn{padding:7px 20px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:13px;transition:all .15s}
+.modal-btn.confirm{background:var(--danger);color:#fff;border-color:var(--danger)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}
+
+@media(max-width:768px){.conv-page{flex-direction:column}.conv-sidebar{width:100%;min-width:unset;height:40%;border-right:none;border-bottom:1px solid var(--border)}.conv-main{height:60%}.bubble{max-width:85%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="nav">
+    <div class="nav-left">
+      <h1>Chat Memory</h1>
+      <div class="nav-tabs">
+        <div class="nav-tab active" data-tab="home">Home</div>
+        <div class="nav-tab" data-tab="conversations">Conversations</div>
+        <div class="nav-tab" data-tab="journal">Journal</div>
+      </div>
+    </div>
+    <input type="text" class="nav-search" placeholder="Search..." id="globalSearch">
+  </nav>
+
+  <div class="content">
+    <!-- HOME -->
+    <div class="tab-page active" id="tab-home">
+      <div class="home-scroll">
+        <div class="home-inner" id="homeContent">
+          <div class="empty-state">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONVERSATIONS -->
+    <div class="tab-page" id="tab-conversations">
+      <div class="conv-page">
+        <div class="conv-sidebar">
+          <div class="conv-sidebar-header">
+            <div class="search-row">
+              <input type="text" placeholder="Search conversations..." id="convSearch">
+              <button class="icon-btn" id="calToggle" title="Calendar">
+                <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="calendar-panel" id="calPanel">
+            <div class="cal-nav">
+              <button id="prevM"><svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+              <span class="label" id="calLabel"></span>
+              <button id="nextM"><svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+            <div class="cal-clear"><button id="clearCal">Clear date filter</button></div>
+          </div>
+          <div class="tag-filters" id="tagFilters"></div>
+          <div class="conv-list" id="convList"></div>
+        </div>
+        <div class="conv-main">
+          <div class="conv-header" id="convHeader" style="display:none">
+            <div class="conv-header-left">
+              <h2 id="convTitle"></h2>
+              <div class="cmeta" id="convMeta"></div>
+              <div class="chtags" id="convTags"></div>
+            </div>
+            <div class="conv-actions">
+              <button class="icon-btn" id="summaryBtn" title="Summary">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </button>
+              <div style="position:relative">
+                <button class="icon-btn" id="moreBtn" title="More">
+                  <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+                <div class="dropdown-menu" id="moreMenu">
+                  <div class="dropdown-item danger" id="deleteBtn">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    Delete
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="summary-panel" id="summaryPanel"></div>
+          <div class="chat-area" id="chatArea"><div class="empty-state">Select a conversation</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- JOURNAL -->
+    <div class="tab-page" id="tab-journal">
+      <div class="journal-scroll">
+        <div class="journal-inner" id="journalContent">
+          <h2>Journal</h2>
+          <p class="sub">Growth diary — reflections, learnings, evolution</p>
+          <div id="journalEntries"><div class="empty-state" style="height:200px">No journal entries yet</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete modal -->
+<div class="modal-bg" id="delModal">
+  <div class="modal">
+    <h3>Delete conversation</h3>
+    <p id="delText">Are you sure?</p>
+    <div class="modal-btns">
+      <button class="modal-btn" id="delCancel">Cancel</button>
+      <button class="modal-btn confirm" id="delConfirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// State
+let S = {
+  index: null, tags: {}, highlights: [], artifacts: [],
+  activeTab: "home", activeSession: null,
+  convCache: {}, searchQuery: "", convSearch: "",
+  selectedDate: null, activeTags: new Set(),
+  showSummary: false, deletingId: null,
+  calY: new Date().getFullYear(), calM: new Date().getMonth(),
+  deleted: new Set(),
+};
+
+marked.setOptions({breaks:true,gfm:true});
+
+// ===== Data loading =====
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+async function init() {
+  const [index, tags, highlights, artifacts, deleted] = await Promise.all([
+    fetchJSON("data/index.json"),
+    fetchJSON("data/tags.json"),
+    fetchJSON("data/highlights.json"),
+    fetchJSON("data/artifacts.json"),
+    fetchJSON("data/deleted.json"),
+  ]);
+  S.index = index || {sessions:[]};
+  S.tags = tags || {};
+  S.highlights = highlights || [];
+  S.artifacts = artifacts || [];
+  S.deleted = new Set(deleted || []);
+
+  // Filter deleted
+  S.index.sessions = S.index.sessions.filter(s => !S.deleted.has(s.id));
+
+  renderHome();
+  renderTags();
+  renderConvList();
+  renderCalendar();
+  renderJournal();
+}
+
+async function loadConversation(id) {
+  if (S.convCache[id]) return S.convCache[id];
+  const conv = await fetchJSON(`data/conversations/${id}.json`);
+  if (conv) S.convCache[id] = conv;
+  return conv;
+}
+
+// ===== Utils =====
+function esc(t){const d=document.createElement("div");d.textContent=t;return d.innerHTML}
+function escRx(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
+function hl(text,q){if(!q)return esc(text);const e=esc(text),qe=esc(q);return e.replace(new RegExp(`(${escRx(qe)})`,"gi"),"<mark>$1</mark>")}
+function hlHtml(html,q){if(!q)return html;const qr=escRx(q);return html.replace(/>([^<]+)</g,(m,t)=>">"+t.replace(new RegExp(`(${qr})`,"gi"),"<mark>$1</mark>")+"<")}
+function fmtTime(ts){if(!ts)return"";const d=new Date(ts);return`${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`}
+function fmtDate(ts){if(!ts)return"";const d=new Date(ts);return`${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")} ${fmtTime(ts)}`}
+function fmtShortDate(ts){if(!ts)return"";const d=new Date(ts);return`${d.getMonth()+1}月${d.getDate()}日`}
+function timeDivider(a,b){return a&&b&&(new Date(b)-new Date(a))>120000}
+function typeLabel(t){return{insight:"洞察",perspective_shift:"观点转变",good_metaphor:"好比喻",reflection:"反思",bookmark:"收藏"}[t]||t}
+
+// ===== Tab switching =====
+document.querySelectorAll(".nav-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    S.activeTab = tab.dataset.tab;
+    document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelectorAll(".tab-page").forEach(p=>p.classList.remove("active"));
+    document.getElementById("tab-"+S.activeTab).classList.add("active");
+  });
+});
+
+// ===== HOME =====
+function renderHome() {
+  const sessions = S.index.sessions;
+  const recent = sessions.slice(0,5);
+  const recentHL = S.highlights.slice(0,3);
+  const recentArt = S.artifacts.slice(0,3);
+
+  let h = "";
+
+  // Weekly Insight placeholder
+  h += `<div class="insight-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2>Weekly Insight</h2><span class="date" style="font-size:12px;color:var(--text-2)">This week</span>
+    </div>
+    <div class="body"><p style="color:var(--text-2);font-style:italic">Weekly insight will appear here after your first week of conversations.</p></div>
+    <div class="insight-stats">
+      <div><div class="stat-val">${sessions.length}</div><div class="stat-label">conversations</div></div>
+      <div><div class="stat-val">${Object.keys(S.tags).length}</div><div class="stat-label">topics</div></div>
+      <div><div class="stat-val">${S.highlights.length}</div><div class="stat-label">highlights</div></div>
+    </div>
+  </div>`;
+
+  // Highlights
+  if (recentHL.length) {
+    h += `<div class="section-header"><h3>Highlights</h3><a onclick="switchTab('conversations')">View all</a></div>`;
+    h += `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">`;
+    for (const hl of recentHL) {
+      h += `<div class="card highlight-card">
+        <div class="meta"><span>${esc(hl.timestamp?.slice(0,10)||"")}</span><span class="type-pill ${hl.type}">${typeLabel(hl.type)}</span></div>
+        <div class="quote">${esc(hl.text)}</div>
+      </div>`;
+    }
+    h += `</div>`;
+  }
+
+  // Artifacts
+  if (recentArt.length) {
+    h += `<div class="section-header"><h3>Recent Artifacts</h3></div>`;
+    h += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">`;
+    for (const a of recentArt) {
+      h += `<div class="artifact-row">
+        <svg class="icon" viewBox="0 0 24 24" style="color:var(--icon);flex-shrink:0"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <div class="info"><div class="name">${esc(a.filename||"")}</div><div class="desc">${esc(a.title||"")}</div></div>
+        <span class="date">${fmtShortDate(a.createdAt)}</span>
+      </div>`;
+    }
+    h += `</div>`;
+  }
+
+  // Recent conversations
+  h += `<div class="section-header"><h3>Recent Conversations</h3><a onclick="switchTab('conversations')">View all</a></div>`;
+  h += `<div style="display:flex;flex-direction:column;gap:2px;margin-bottom:20px">`;
+  for (const s of recent) {
+    const tags = (s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+    h += `<div class="recent-row" onclick="openConversation('${s.id}')">
+      <span class="rdate">${fmtShortDate(s.date)}</span>
+      <span class="rtitle">${esc(s.title||"Untitled")}</span>
+      <div style="display:flex;gap:4px">${tags}</div>
+    </div>`;
+  }
+  h += `</div>`;
+
+  document.getElementById("homeContent").innerHTML = h;
+}
+
+function switchTab(name) {
+  document.querySelector(`.nav-tab[data-tab="${name}"]`).click();
+}
+
+function openConversation(id) {
+  S.activeSession = id;
+  switchTab("conversations");
+  renderConvList();
+  renderConv();
+}
+
+// ===== CONVERSATIONS =====
+function chatDates(){const d=new Set();S.index.sessions.forEach(s=>{if(s.date)d.add(s.date)});return d}
+
+function renderCalendar(){
+  const cd=chatDates();
+  document.getElementById("calLabel").textContent=`${S.calY}年${S.calM+1}月`;
+  const fd=new Date(S.calY,S.calM,1).getDay();
+  const dim=new Date(S.calY,S.calM+1,0).getDate();
+  const pdim=new Date(S.calY,S.calM,0).getDate();
+  let h=["日","一","二","三","四","五","六"].map(d=>`<div class="dh">${d}</div>`).join("");
+  for(let i=fd-1;i>=0;i--)h+=`<div class="d om">${pdim-i}</div>`;
+  for(let d=1;d<=dim;d++){
+    const ds=`${S.calY}-${(S.calM+1).toString().padStart(2,"0")}-${d.toString().padStart(2,"0")}`;
+    const cls=["d"];if(cd.has(ds))cls.push("has");if(S.selectedDate===ds)cls.push("sel");
+    h+=`<div class="${cls.join(" ")}" data-d="${ds}">${d}</div>`;
+  }
+  const rem=(fd+dim)%7;if(rem)for(let d=1;d<=7-rem;d++)h+=`<div class="d om">${d}</div>`;
+  const g=document.getElementById("calGrid");g.innerHTML=h;
+  g.querySelectorAll(".d.has").forEach(el=>el.addEventListener("click",()=>{
+    S.selectedDate=S.selectedDate===el.dataset.d?null:el.dataset.d;renderCalendar();renderConvList();
+  }));
+}
+document.getElementById("prevM").addEventListener("click",()=>{if(--S.calM<0){S.calM=11;S.calY--}renderCalendar()});
+document.getElementById("nextM").addEventListener("click",()=>{if(++S.calM>11){S.calM=0;S.calY++}renderCalendar()});
+document.getElementById("clearCal").addEventListener("click",()=>{S.selectedDate=null;renderCalendar();renderConvList()});
+document.getElementById("calToggle").addEventListener("click",()=>{
+  document.getElementById("calPanel").classList.toggle("show");
+  document.getElementById("calToggle").classList.toggle("active");
+});
+
+function renderTags(){
+  const c=document.getElementById("tagFilters");
+  const tags=Object.keys(S.tags).sort();
+  if(!tags.length){c.style.display="none";return}
+  c.style.display="flex";
+  c.innerHTML=tags.map(t=>`<span class="tag-chip ${S.activeTags.has(t)?"active":""}" data-t="${t}">#${t}</span>`).join("");
+  c.querySelectorAll(".tag-chip").forEach(ch=>ch.addEventListener("click",()=>{
+    const t=ch.dataset.t;S.activeTags.has(t)?S.activeTags.delete(t):S.activeTags.add(t);renderTags();renderConvList();
+  }));
+}
+
+function matchSession(s){
+  if(S.selectedDate&&s.date!==S.selectedDate)return false;
+  if(S.activeTags.size){const st=new Set(s.tags||[]);for(const t of S.activeTags)if(!st.has(t))return false}
+  const raw=S.convSearch.trim();
+  if(raw){
+    // Parse #tag searches
+    const tagSearches=[];
+    const textParts=[];
+    raw.split(/\s+/).forEach(w=>{
+      if(w.startsWith("#")&&w.length>1)tagSearches.push(w.slice(1).toLowerCase());
+      else textParts.push(w);
+    });
+    // Check tag matches
+    const sTags=(s.tags||[]).map(t=>t.toLowerCase());
+    const sProj=(s.project||"").toLowerCase();
+    for(const t of tagSearches){
+      if(!sTags.some(st=>st.includes(t))&&!sProj.includes(t))return false;
+    }
+    // Check text matches
+    const q=textParts.join(" ").toLowerCase();
+    if(q){
+      if(!(s.title||"").toLowerCase().includes(q)&&!(s.one_line||"").toLowerCase().includes(q)
+        &&!sTags.some(t=>t.includes(q))&&!sProj.includes(q))return false;
+    }
+  }
+  return true;
+}
+
+function renderConvList(){
+  const c=document.getElementById("convList");
+  const ss=S.index.sessions.filter(matchSession);
+  if(!ss.length){c.innerHTML=`<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No conversations found</div>`;return}
+  c.innerHTML=ss.map(s=>{
+    const tags=(s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+    const proj=s.project?`<span class="tag-pill" style="background:#e0e7ff;color:#4338ca">${esc(s.project)}</span>`:"";
+    return`<div class="conv-card ${s.id===S.activeSession?"active":""}" data-id="${s.id}">
+      <div class="cdate">${s.date}${proj?` ${proj}`:""}</div>
+      <div class="ctitle">${hl(s.title||"Untitled",S.convSearch)}</div>
+      <div class="cprev">${hl(s.one_line||"",S.convSearch)}</div>
+      ${tags?`<div class="ctags">${tags}</div>`:""}
+    </div>`;
+  }).join("");
+  c.querySelectorAll(".conv-card").forEach(card=>card.addEventListener("click",()=>{
+    S.activeSession=card.dataset.id;S.showSummary=false;renderConvList();renderConv();
+  }));
+}
+
+async function renderConv(){
+  const hdr=document.getElementById("convHeader");
+  const area=document.getElementById("chatArea");
+  const sp=document.getElementById("summaryPanel");
+  if(!S.activeSession){hdr.style.display="none";sp.classList.remove("show");area.innerHTML=`<div class="empty-state">Select a conversation</div>`;return}
+
+  const conv=await loadConversation(S.activeSession);
+  const session=S.index.sessions.find(s=>s.id===S.activeSession);
+  if(!conv){area.innerHTML=`<div class="empty-state">Conversation not found</div>`;return}
+
+  hdr.style.display="flex";
+  document.getElementById("convTitle").textContent=session?.title||"Untitled";
+  document.getElementById("convMeta").textContent=`${fmtDate(conv.startTime)} — ${fmtTime(conv.endTime)} · ${conv.messageCount} messages`;
+  document.getElementById("convTags").innerHTML=(session?.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+
+  renderSummary();
+
+  const q=S.convSearch;
+  let h="",prev=null;
+  for(const m of conv.messages){
+    if(timeDivider(prev,m.timestamp))h+=`<div class="time-divider">${fmtTime(m.timestamp)}</div>`;
+    const content=m.role==="assistant"?(q?hlHtml(marked.parse(m.text),q):marked.parse(m.text)):hl(m.text,q);
+    const tools=(m.tools||[]).map(t=>`<span class="tool-badge">${esc(t)}</span>`).join("");
+    h+=`<div class="message ${m.role}"><div class="bubble">${content}</div>${tools?`<div class="tool-badges">${tools}</div>`:""}<div class="msg-time">${fmtTime(m.timestamp)}</div></div>`;
+    prev=m.timestamp;
+  }
+  area.innerHTML=h;area.scrollTop=0;
+}
+
+function renderSummary(){
+  const p=document.getElementById("summaryPanel");
+  if(!S.showSummary){p.classList.remove("show");return}
+  const s=S.index.sessions.find(s=>s.id===S.activeSession);
+  p.classList.add("show");
+  p.innerHTML=s?.one_line?`<h4>Summary</h4><div class="sbody">${esc(s.one_line)}</div>`:`<p style="color:var(--text-2);font-size:13px">No summary yet</p>`;
+}
+
+document.getElementById("convSearch").addEventListener("input",e=>{S.convSearch=e.target.value.trim();renderConvList();if(S.activeSession)renderConv()});
+document.getElementById("summaryBtn").addEventListener("click",()=>{S.showSummary=!S.showSummary;document.getElementById("summaryBtn").classList.toggle("active",S.showSummary);renderSummary()});
+document.getElementById("moreBtn").addEventListener("click",e=>{e.stopPropagation();document.getElementById("moreMenu").classList.toggle("show")});
+document.addEventListener("click",()=>document.getElementById("moreMenu").classList.remove("show"));
+
+// Delete
+document.getElementById("deleteBtn").addEventListener("click",()=>{
+  if(!S.activeSession)return;
+  S.deletingId=S.activeSession;
+  const s=S.index.sessions.find(x=>x.id===S.deletingId);
+  document.getElementById("delText").textContent=`Delete "${s?.title||"Untitled"}"?`;
+  document.getElementById("delModal").classList.add("show");
+  document.getElementById("moreMenu").classList.remove("show");
+});
+document.getElementById("delCancel").addEventListener("click",()=>{document.getElementById("delModal").classList.remove("show");S.deletingId=null});
+document.getElementById("delConfirm").addEventListener("click",async()=>{
+  if(!S.deletingId)return;
+  const idToDelete=S.deletingId;
+  S.deleted.add(idToDelete);
+  S.index.sessions=S.index.sessions.filter(s=>s.id!==idToDelete);
+  delete S.convCache[idToDelete];
+  for(const t in S.tags){S.tags[t]=S.tags[t].filter(id=>id!==idToDelete);if(!S.tags[t].length)delete S.tags[t]}
+  if(S.activeSession===idToDelete){S.activeSession=null;renderConv()}
+  document.getElementById("delModal").classList.remove("show");S.deletingId=null;
+  // Persist via API, fallback to localStorage
+  try{await fetch("/api/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:idToDelete})})}catch(e){
+    localStorage.setItem("chatMemoryDeleted",JSON.stringify([...S.deleted]));
+  }
+  renderTags();renderConvList();renderCalendar();renderHome();
+});
+
+// ===== JOURNAL =====
+async function renderJournal(){
+  // Try to load journal entries by listing known dates from index
+  // For now, show placeholder if no entries
+  const container = document.getElementById("journalEntries");
+  // Journal entries are markdown files in data/journal/
+  // We'll try to fetch a few recent ones
+  const today = new Date().toISOString().slice(0,10);
+  const entries = [];
+  // Try last 7 days
+  for(let i=0;i<7;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const ds=d.toISOString().slice(0,10);
+    try{
+      const r=await fetch(`data/journal/${ds}.md`);
+      if(r.ok){entries.push({date:ds,content:await r.text(),isToday:i===0})}
+    }catch(e){}
+  }
+
+  if(!entries.length){
+    container.innerHTML=`<div class="empty-state" style="height:200px;flex-direction:column;gap:8px">
+      <div>No journal entries yet</div>
+      <div style="font-size:12px">Journal entries will appear here as conversations grow</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = entries.map(e => {
+    const body = e.content.replace(/^---[\s\S]*?---\n*/,""); // strip frontmatter
+    return `<div class="j-entry">
+      <div class="j-dot"><div class="dot ${e.isToday?"today":"past"}"></div><span>${e.date}</span>${e.isToday?`<span class="when">Today</span>`:""}</div>
+      <div class="j-timeline">${marked.parse(body)}</div>
+    </div>`;
+  }).join("");
+}
+
+// ===== Global search =====
+document.getElementById("globalSearch").addEventListener("input",e=>{
+  S.searchQuery=e.target.value.trim();
+  // Route to conversations tab with search
+  if(S.searchQuery){
+    S.convSearch=S.searchQuery;
+    document.getElementById("convSearch").value=S.searchQuery;
+    switchTab("conversations");
+    renderConvList();
+  }
+});
+
+// ===== Restore deleted from localStorage fallback =====
+function restoreDeleted(){
+  try{const d=JSON.parse(localStorage.getItem("chatMemoryDeleted")||"[]");d.forEach(id=>S.deleted.add(id))}catch(e){}
+}
+
+// ===== Init =====
+restoreDeleted();
+init();
+</script>
+</body>
+</html>
