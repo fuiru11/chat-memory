@@ -12,6 +12,9 @@ data/tags.json
 data/latest-insight.json
 data/recent-summaries.md
 data/.highlights-draft.jsonl
+data/segments.json
+data/topics.json
+data/version.json
 data/data.js
 
 # Artifacts (personal research/files)

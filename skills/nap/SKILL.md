@@ -129,6 +129,7 @@ If any files were created during this session (research reports, code files, pla
 {
   "id": "a{timestamp}",
   "filename": "{filename}",
+  "path": "{absolute file path — from the Write/Edit tool call's file_path parameter, or null if unknown}",
   "title": "{description}",
   "type": "research|plan|code|note",
   "tags": ["{relevant tags}"],
@@ -138,9 +139,11 @@ If any files were created during this session (research reports, code files, pla
 }
 ```
 
+To get `path`: look at the Write or Edit tool calls in this conversation. The `file_path` parameter of the tool call that created or last modified this file is the path. Use the absolute path. If the file was created outside of tool calls or the path is unclear, set to `null`.
+
 To get `messageTs`: find the assistant message in the conversation JSONL that mentions the artifact filename. Use that message's exact timestamp.
 
-Also check if a plan file was created during this session (look in `~/.claude/plans/` for files modified during this session). If found, copy it to `~/chat-memory/artifacts/` and add it to the artifacts index with `type: "plan"`.
+Also check if a plan file was created during this session (look in `~/.claude/plans/` for files modified during this session). If found, copy it to `~/chat-memory/artifacts/` and add it to the artifacts index with `type: "plan"` and `path` set to the artifacts/ copy path.
 
 If no files or plans were created, skip this step.
 

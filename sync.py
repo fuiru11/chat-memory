@@ -72,6 +72,131 @@ def utc_to_local_date(ts):
         return ts[:10] if ts else ""
 
 
+# ===== Schema Migration =====
+
+CURRENT_SCHEMA_VERSION = 1
+VERSION_FILE = DATA_DIR / "version.json"
+
+
+def load_version():
+    if VERSION_FILE.exists():
+        try:
+            return json.loads(VERSION_FILE.read_text())
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return {"schemaVersion": 0, "lastMigration": None}
+
+
+def save_version(version):
+    version["lastMigration"] = datetime.utcnow().isoformat() + "Z"
+    VERSION_FILE.write_text(json.dumps(version, ensure_ascii=False, indent=2))
+
+
+def find_artifact_path(filename, session_id, config):
+    """Try to find the original file path for an artifact.
+
+    1. Check ~/chat-memory/artifacts/{filename}
+    2. Search the session's raw JSONL for Write/Edit tool calls matching filename
+    3. Return None if not found
+    """
+    # Check artifacts directory
+    local = ARTIFACTS_DIR / filename
+    if local.exists():
+        return str(local.resolve())
+
+    # Search JSONL for tool calls
+    projects_dir = config["claude_projects_dir"]
+    if not projects_dir.exists():
+        return None
+
+    for pdir in projects_dir.iterdir():
+        if not pdir.is_dir():
+            continue
+        jsonl_file = pdir / f"{session_id}.jsonl"
+        if not jsonl_file.exists():
+            continue
+        try:
+            with open(jsonl_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        rec = json.loads(line.strip())
+                    except json.JSONDecodeError:
+                        continue
+                    msg = rec.get("message", {})
+                    content = msg.get("content", [])
+                    if not isinstance(content, list):
+                        continue
+                    for block in content:
+                        if (isinstance(block, dict)
+                                and block.get("type") == "tool_use"
+                                and block.get("name") in ("Write", "Edit")
+                                and isinstance(block.get("input"), dict)):
+                            fp = block["input"].get("file_path", "")
+                            if fp and fp.endswith("/" + filename):
+                                return fp
+        except Exception:
+            continue
+    return None
+
+
+def migrate_v0_to_v1(config):
+    """v0 → v1: Add path field to artifacts, ensure segments/topics exist."""
+    # (a) Add path to artifacts
+    artifacts_file = DATA_DIR / "artifacts.json"
+    if artifacts_file.exists():
+        try:
+            artifacts = json.loads(artifacts_file.read_text())
+            changed = False
+            for art in artifacts:
+                if "path" not in art:
+                    art["path"] = find_artifact_path(
+                        art.get("filename", ""),
+                        art.get("sessionId", ""),
+                        config
+                    )
+                    changed = True
+            if changed:
+                artifacts_file.write_text(
+                    json.dumps(artifacts, ensure_ascii=False, indent=2))
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # (b) Ensure segments.json exists
+    seg_file = DATA_DIR / "segments.json"
+    if not seg_file.exists():
+        seg_file.write_text("[]")
+
+    # (c) Ensure topics.json exists
+    top_file = DATA_DIR / "topics.json"
+    if not top_file.exists():
+        top_file.write_text("{}")
+
+
+MIGRATIONS = {
+    1: migrate_v0_to_v1,
+}
+
+
+def run_migrations(config):
+    """Run pending schema migrations."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    version = load_version()
+    current = version["schemaVersion"]
+
+    if current >= CURRENT_SCHEMA_VERSION:
+        return
+
+    for target_v in range(current + 1, CURRENT_SCHEMA_VERSION + 1):
+        fn = MIGRATIONS.get(target_v)
+        if fn:
+            print(f"  Running migration v{target_v - 1} → v{target_v}...")
+            fn(config)
+            version["schemaVersion"] = target_v
+            save_version(version)
+
+    print(f"  Migration complete (schema v{CURRENT_SCHEMA_VERSION})")
+
+
 # ===== JSONL Parsing =====
 
 def is_system_message(content):
@@ -602,6 +727,7 @@ if __name__ == "__main__":
         uninstall_service()
     else:
         cfg = load_config()
+        run_migrations(cfg)
         sync(cfg)
         if "--serve" in sys.argv:
             serve(cfg)

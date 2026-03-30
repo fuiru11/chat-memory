@@ -64,7 +64,7 @@ echo "[ok] Data directories ready"
 # --- Install skills ---
 mkdir -p "$SKILLS_DST"
 SKILLS_INSTALLED=0
-for skill in nap sleep morning weekly-retro; do
+for skill in nap sleep morning weekly-retro backfill chat-memory-fix; do
   src="$SKILLS_SRC/$skill/SKILL.md"
   dst="$SKILLS_DST/$skill/SKILL.md"
   if [ ! -f "$src" ]; then
@@ -121,6 +121,101 @@ fi
 echo ""
 echo "Running first sync..."
 python3 "$CHAT_MEMORY_DIR/sync.py"
+
+# --- Optional: Backfill summaries ---
+if [ -n "$CLAUDE_BIN" ]; then
+  SESSION_COUNT=$(python3 -c "
+import json, os
+idx_path = os.path.join('$CHAT_MEMORY_DIR', 'data', 'index.json')
+if os.path.exists(idx_path):
+    idx = json.load(open(idx_path))
+    print(len(idx.get('sessions', [])))
+else:
+    print(0)
+" 2>/dev/null || echo "0")
+
+  if [ "$SESSION_COUNT" -gt 0 ]; then
+    echo ""
+    echo "Found $SESSION_COUNT sessions. Generate summaries for recent ones?"
+    echo "  This uses Claude to analyze conversations and create summaries,"
+    echo "  highlights, and topic segments — making the viewer much more useful."
+    echo ""
+    echo "  [1] Last 5 sessions (recommended)"
+    echo "  [2] Last 1 day"
+    echo "  [3] Custom number"
+    echo "  [4] Skip"
+    read -p "Choice [1-4]: " BACKFILL_CHOICE
+    echo
+
+    if [ "$BACKFILL_CHOICE" != "4" ]; then
+      # Determine how many sessions
+      BACKFILL_N=5
+      if [ "$BACKFILL_CHOICE" = "2" ]; then
+        BACKFILL_N="1d"
+      elif [ "$BACKFILL_CHOICE" = "3" ]; then
+        read -p "How many recent sessions? " BACKFILL_N
+      fi
+
+      # Get session IDs
+      BACKFILL_IDS=$(python3 -c "
+import json, os
+from datetime import datetime, timedelta
+idx_path = os.path.join('$CHAT_MEMORY_DIR', 'data', 'index.json')
+idx = json.load(open(idx_path))
+sessions = idx.get('sessions', [])
+n = '$BACKFILL_N'
+if n == '1d':
+    cutoff = (datetime.utcnow() - timedelta(days=1)).isoformat() + 'Z'
+    selected = [s for s in sessions if s.get('startTime', '') >= cutoff]
+else:
+    selected = sessions[:int(n)]
+for s in selected:
+    print(s['id'])
+" 2>/dev/null)
+
+      if [ -n "$BACKFILL_IDS" ]; then
+        BACKFILL_COUNT=$(echo "$BACKFILL_IDS" | wc -l | tr -d ' ')
+        echo "Generating summaries for $BACKFILL_COUNT sessions..."
+        for SID in $BACKFILL_IDS; do
+          SHORT_ID=$(echo "$SID" | cut -c1-8)
+          echo "  Processing $SHORT_ID..."
+          $CLAUDE_BIN -p "/backfill $SID" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>/dev/null
+        done
+        echo "[ok] Backfill complete"
+
+        # Offer journal generation
+        echo ""
+        read -p "Generate journal entries for these days? (Y/n) " JOURNAL_CHOICE
+        echo
+        if [[ ! "$JOURNAL_CHOICE" =~ ^[Nn]$ ]]; then
+          DATES=$(python3 -c "
+import json, os
+idx_path = os.path.join('$CHAT_MEMORY_DIR', 'data', 'index.json')
+idx = json.load(open(idx_path))
+backfill_ids = set('''$BACKFILL_IDS'''.split())
+dates = set()
+for s in idx['sessions']:
+    if s['id'] in backfill_ids and s.get('date'):
+        dates.add(s['date'])
+for d in sorted(dates):
+    print(d)
+" 2>/dev/null)
+          for DATE in $DATES; do
+            if [ ! -f "$CHAT_MEMORY_DIR/data/journal/$DATE.md" ]; then
+              echo "  Writing journal for $DATE..."
+              $CLAUDE_BIN -p "/sleep" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>/dev/null
+            else
+              echo "  [skip] Journal for $DATE already exists"
+            fi
+          done
+          echo "[ok] Journals generated"
+        fi
+      fi
+    else
+      echo "[skip] No backfill — you can run /backfill later in Claude Code"
+    fi
+  fi
+fi
 
 # --- Optional: macOS LaunchAgent ---
 echo ""

@@ -6,18 +6,22 @@ Personal conversation review & reflection tool for Claude Code sessions.
 
 - **Single-page app** (`index.html`) — vanilla JS, no framework, no build step
 - **Python sync service** (`sync.py`) — parses Claude Code JSONL logs → structured JSON, serves the viewer
-- **Skills** — `/nap` (save session), `/sleep` (write daily journal)
+- **Skills** — `/nap` (save session), `/sleep` (daily journal), `/backfill` (historical sessions), `/chat-memory-fix` (diagnose & repair)
 - **LaunchAgent** — `com.chatmemory.server.plist` (sync daemon), `com.chatmemory.journal.plist` (daily journal fallback at 05:00)
 
 ## Data Flow
 
 ```
-Claude Code JSONL → sync.py → data/conversations/*.json + data/index.json
-                                      ↓
+Claude Code JSONL → sync.py (+ auto-migration via data/version.json)
+                        ↓
+                   data/conversations/*.json + data/index.json
+                        ↓
 /nap skill → data/summaries/*.md + data/highlights.json + data/artifacts.json
            → data/segments.json + data/topics.json (conversation segments & topic threads)
-                                      ↓
+                        ↓
 /sleep skill → data/journal/{date}.md
+/backfill skill → same outputs as /nap, for historical sessions
+/chat-memory-fix → diagnose + repair + migrate
 ```
 
 ## Key Files
@@ -25,7 +29,7 @@ Claude Code JSONL → sync.py → data/conversations/*.json + data/index.json
 | File | Purpose |
 |------|---------|
 | `index.html` | Main viewer SPA (Home, Conversations, Journal tabs) |
-| `sync.py` | JSONL parser, data sync, web server |
+| `sync.py` | JSONL parser, data sync, schema migration, web server |
 | `config.json` | Local config (port, persona, paths) |
 | `data/` | All conversation data (gitignored) |
 | `marked.min.js` | Markdown renderer (vendored) |
