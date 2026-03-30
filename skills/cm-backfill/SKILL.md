@@ -130,6 +130,12 @@ To find artifacts: look for messages with `tools` array containing "Write" or "E
 
 Skip config files, temporary files, and minor edits. Only record meaningful outputs.
 
+**Symlink to artifacts directory:** For each artifact with a valid path, create a symlink so the viewer can access it:
+```bash
+ln -sf "{absolute_path}" ~/chat-memory/artifacts/{filename}
+```
+Skip if already in artifacts/ or path is null/missing.
+
 ### Step 6: Sync
 
 After processing all sessions, run:

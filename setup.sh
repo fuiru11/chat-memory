@@ -232,16 +232,23 @@ for d in sorted(dates):
   fi
 fi
 
-# --- Optional: macOS LaunchAgent ---
+# --- macOS LaunchAgent ---
 echo ""
 if [ "$(uname)" = "Darwin" ]; then
-  read -p "Install as macOS auto-start service? (y/N) " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
+  PLIST_FILE="$HOME/Library/LaunchAgents/com.chatmemory.server.plist"
+  if [ -f "$PLIST_FILE" ]; then
+    # Already installed — restart to pick up new code
     python3 "$CHAT_MEMORY_DIR/sync.py" --install
-    echo "[ok] LaunchAgent installed"
+    echo "[ok] LaunchAgent restarted (updated code)"
   else
-    echo "[skip] No auto-start — run manually: python3 sync.py --serve"
+    read -p "Install as macOS auto-start service? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      python3 "$CHAT_MEMORY_DIR/sync.py" --install
+      echo "[ok] LaunchAgent installed"
+    else
+      echo "[skip] No auto-start — run manually: python3 sync.py --serve"
+    fi
   fi
 fi
 

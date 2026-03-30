@@ -49,7 +49,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .section-header h3{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em}
 .section-header a{font-size:12px;color:var(--accent);text-decoration:none;cursor:pointer}
 .section-header a:hover{text-decoration:underline}
-.tag-pill{font-size:11px;padding:1px 8px;border-radius:8px;background:var(--tag-bg);color:var(--tag-text)}
+.tag-pill{font-size:11px;padding:1px 8px;border-radius:8px;background:var(--tag-bg);color:var(--tag-text);transition:opacity .15s}
+.tag-pill[data-tag]{cursor:pointer}
+.tag-pill[data-tag]:hover{opacity:.7}
 .type-pill{font-size:10px;padding:2px 8px;border-radius:8px}
 .type-pill.insight{background:var(--purple-bg);color:var(--purple)}
 .type-pill.perspective_shift{background:var(--amber-bg);color:var(--amber)}
@@ -135,12 +137,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .conv-card .cprev{font-size:12px;color:var(--text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .conv-card .ctags{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap}
 
-.conv-main{flex:1;display:flex;flex-direction:column;background:var(--bg)}
-.conv-header{padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
+.conv-main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.conv-header{padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
 .conv-header-left{flex:1}
-.conv-header h2{font-size:15px;font-weight:600}
-.conv-header .cmeta{font-size:12px;color:var(--text-2);margin-top:3px}
-.conv-header .chtags{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap}
+.conv-header h2{font-size:14px;font-weight:600;margin-bottom:2px}
+.conv-header .cmeta{font-size:11px;color:var(--text-2)}
+.conv-header .chtags{margin-top:4px;display:flex;gap:4px;flex-wrap:wrap}
 .conv-actions{display:flex;gap:6px;margin-left:16px;position:relative}
 
 .dropdown-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.08);min-width:140px;z-index:50;overflow:hidden}
@@ -150,8 +152,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .dropdown-item.danger{color:var(--danger)}
 .dropdown-item.danger:hover{background:var(--danger-bg)}
 
-.summary-detail{padding:16px 24px;background:var(--surface);border-bottom:1px solid var(--border);max-height:400px;overflow-y:auto}
-.summary-detail h4{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.summary-detail{background:#fefce8;border-bottom:1px solid #fde68a;padding:10px 24px}
+.summary-detail .sd-header{display:flex;justify-content:space-between;align-items:center}
+.summary-detail .sd-header h4{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+.summary-detail .sd-btn{font-size:11px;color:var(--text-3);cursor:pointer;padding:2px 8px;border-radius:4px;border:1px solid #fde68a;background:transparent;transition:all .15s}
+.summary-detail .sd-btn:hover{background:#fef3c7;color:var(--text-2)}
+.summary-detail .sd-body{margin-top:8px;max-height:260px;overflow-y:auto;transition:all .3s ease}
+.summary-detail.collapsed .sd-body{max-height:0;margin:0;overflow:hidden;opacity:0}
 .summary-detail .md-content{font-size:13px;line-height:1.7}
 .summary-detail .md-content h2{font-size:13px;font-weight:600;color:var(--text);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.03em}
 .summary-detail .md-content ul{margin:0 0 8px;padding-left:20px}
@@ -182,8 +189,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .message{margin-bottom:14px;display:flex;flex-direction:column}
 .message.user{align-items:flex-end}
 .message.assistant{align-items:flex-start}
-.bubble{max-width:70%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.6;word-wrap:break-word}
-.message.user .bubble{background:var(--user-bubble);border-top-right-radius:4px;white-space:pre-wrap}
+.bubble{max-width:70%;min-width:0;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.6;word-wrap:break-word;overflow-wrap:break-word}
+.bubble pre{overflow-x:auto}
+.bubble table{overflow-x:auto;display:block;max-width:100%}
+.message.user .bubble{background:var(--user-bubble);border-top-right-radius:4px}
+.message.user .bubble p{margin:4px 0}
+.message.user .bubble code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:13px;font-family:"SF Mono",Monaco,monospace}
+.message.user .bubble pre{background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:8px;overflow-x:auto;margin:6px 0;font-size:13px}
+.message.user .bubble pre code{background:none;padding:0;color:inherit}
+.message.user .bubble strong{font-weight:600}
+.message.user .bubble ul,.message.user .bubble ol{padding-left:20px;margin:4px 0}
+.message.user .bubble table{border-collapse:collapse;margin:6px 0;font-size:13px}
+.message.user .bubble th,.message.user .bubble td{border:1px solid var(--border);padding:4px 8px}
 .message.assistant .bubble{background:var(--assistant-bubble);border-top-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .message.assistant .bubble h1{font-size:17px;margin:10px 0 6px;font-weight:600}
 .message.assistant .bubble h2{font-size:15px;margin:8px 0 5px;font-weight:600}
@@ -498,8 +515,14 @@ async function init() {
 
   renderHome();
   renderTopicChips();
+  // Default to most recent conversation
+  if(S.index.sessions.length&&!S.activeSession){
+    S.activeSession=S.index.sessions[0].id;
+  }
   renderConvList();
   renderCalendar();
+  // Delay default conversation render to ensure DOM is ready
+  if(S.activeSession) setTimeout(()=>renderConv(), 50);
   renderJournal();
 }
 
@@ -667,6 +690,10 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
     tab.classList.add("active");
     document.querySelectorAll(".tab-page").forEach(p=>p.classList.remove("active"));
     document.getElementById("tab-"+S.activeTab).classList.add("active");
+    // Load default conversation when first switching to conversations tab
+    if(S.activeTab==="conversations"&&S.activeSession&&!S.convCache[S.activeSession]){
+      renderConv();
+    }
   });
 });
 
@@ -697,16 +724,12 @@ function renderHome() {
       </div>
     </div>`;
   } else {
-    h += `<div class="insight-card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2>Weekly Insight</h2><span class="date">This week</span>
-      </div>
-      <div class="body"><p style="color:var(--text-2);font-style:italic">Weekly insight will appear here after your first retro.</p></div>
-      <div class="insight-stats">
-        <div><div class="stat-val">${sessions.length}</div><div class="stat-label">conversations</div></div>
-        <div><div class="stat-val">${Object.keys(S.topics).length}</div><div class="stat-label">topics</div></div>
-        <div><div class="stat-val">${S.highlights.length}</div><div class="stat-label">highlights</div></div>
-      </div>
+    // Compact empty state — just show stats, no big empty card
+    h += `<div style="display:flex;gap:24px;margin-bottom:20px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+      <div><div class="stat-val">${sessions.length}</div><div class="stat-label">conversations</div></div>
+      <div><div class="stat-val">${Object.keys(S.topics).length}</div><div class="stat-label">topics</div></div>
+      <div><div class="stat-val">${S.highlights.length}</div><div class="stat-label">highlights</div></div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:flex-end"><span style="font-size:12px;color:var(--text-3)">Run /cm-weekly-retro for your first insight</span></div>
     </div>`;
   }
 
@@ -715,12 +738,16 @@ function renderHome() {
   if(topicList.length){
     h+=`<div class="section-header"><h3>Active Topics</h3></div>`;
     h+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">`;
+    let lastDate="";
     for(const t of topicList){
       const segCount=t.segments?t.segments.length:0;
+      const dateStr=t.lastUpdated||"";
+      const showDate=dateStr!==lastDate?dateStr:"";
+      lastDate=dateStr;
       h+=`<div class="recent-row" style="cursor:pointer" onclick="showTopicThread('${esc(t.id)}')">
-        <span class="rdate">${segCount} segment${segCount!==1?"s":""}</span>
+        <span class="rdate" style="min-width:48px">${segCount}<span style="color:var(--text-3);font-size:10px;margin-left:2px">seg</span></span>
         <span class="rtitle">${esc(t.name)}</span>
-        <span style="color:var(--text-3);font-size:11px">${esc(t.lastUpdated||"")}</span>
+        <span style="color:var(--text-3);font-size:11px;min-width:70px;text-align:right">${showDate?esc(showDate):""}</span>
       </div>`;
     }
     h+=`</div>`;
@@ -755,13 +782,15 @@ function renderHome() {
   h += `<div style="display:flex;flex-direction:column;gap:2px;margin-bottom:20px">`;
   for (const s of recent) {
     const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name).filter(Boolean);
-    const pills=topicNames.length
-      ?topicNames.map(n=>`<span class="tag-pill">${esc(n)}</span>`).join("")
-      :(s.tags||[]).map(t=>`<span class="tag-pill" data-tag="${esc(t)}">#${esc(t)}</span>`).join("");
-    h += `<div class="recent-row" onclick="openConversation('${s.id}')">
+    const tagList=topicNames.length?topicNames:(s.tags||[]);
+    const pills=tagList.slice(0,4).map(t=>topicNames.length
+      ?`<span class="tag-pill">${esc(t)}</span>`
+      :`<span class="tag-pill" data-tag="${esc(t)}">#${esc(t)}</span>`).join("")
+      +(tagList.length>4?`<span class="tag-pill">+${tagList.length-4}</span>`:"");
+    h += `<div class="recent-row" style="flex-wrap:wrap" onclick="openConversation('${s.id}')">
       <span class="rdate">${fmtShortDate(s.date)}</span>
-      <span class="rtitle">${esc(s.title||"Untitled")}</span>
-      <div style="display:flex;gap:4px">${pills}</div>
+      <span class="rtitle" style="flex:1;min-width:120px">${esc(s.title||"Untitled")}</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${pills}</div>
     </div>`;
   }
   h += `</div>`;
@@ -820,7 +849,7 @@ function renderTopicChips(){
     return`<span class="tag-chip ${S.activeTopics.has(tid)?"active":""}" data-t="${tid}">${esc(t.name)}</span>`;
   }).join("");
   c.querySelectorAll(".tag-chip").forEach(ch=>ch.addEventListener("click",()=>{
-    const tid=ch.dataset.t;S.activeTopics.has(tid)?S.activeTopics.delete(tid):S.activeTopics.add(tid);renderTopicChips();renderConvList();
+    const tid=ch.dataset.t;if(S.activeTopics.has(tid)){S.activeTopics.clear()}else{S.activeTopics.clear();S.activeTopics.add(tid)}renderTopicChips();renderConvList();
   }));
 }
 
@@ -917,11 +946,23 @@ async function renderConv(){
   renderSegments();
   renderConvArtifacts(S.activeSession);
 
-  // Show full summary
+  // Show full summary (auto-collapse on scroll, button toggle)
   const summaryBody=session?.summaryBody;
   if(summaryBody){
     sd.style.display="block";
-    sd.innerHTML=`<h4>Summary</h4><div class="md-content">${marked.parse(summaryBody)}</div>`;
+    sd.classList.remove("collapsed");
+    sd.innerHTML=`<div class="sd-header"><h4>Summary</h4><button class="sd-btn">Hide</button></div><div class="sd-body"><div class="md-content">${marked.parse(summaryBody)}</div></div>`;
+    const btn=sd.querySelector(".sd-btn");
+    const toggleSummary=(collapse)=>{
+      if(collapse){sd.classList.add("collapsed");btn.textContent="Show"}
+      else{sd.classList.remove("collapsed");btn.textContent="Hide"}
+    };
+    btn.addEventListener("click",()=>toggleSummary(!sd.classList.contains("collapsed")));
+    // Auto-collapse when scrolling down, expand when scrolling to top
+    area.addEventListener("scroll",()=>{
+      if(area.scrollTop>80&&!sd.classList.contains("collapsed"))toggleSummary(true);
+      else if(area.scrollTop===0&&sd.classList.contains("collapsed"))toggleSummary(false);
+    });
   } else {
     sd.style.display="none";
   }
@@ -930,7 +971,7 @@ async function renderConv(){
   let h="",prev=null;
   for(const m of conv.messages){
     if(timeDivider(prev,m.timestamp))h+=`<div class="time-divider">${fmtTime(m.timestamp)}</div>`;
-    const rendered=marked.parse(m.text);
+    const rendered=m.role==="assistant"?marked.parse(m.text):marked.parseInline(m.text);
     const content=q?hlHtml(rendered,q):rendered;
     const tools=(m.tools||[]).map(t=>`<span class="tool-badge">${esc(t)}</span>`).join("");
     h+=`<div class="message ${m.role}" data-ts="${m.timestamp||''}"><div class="bubble">${content}</div>${tools?`<div class="tool-badges">${tools}</div>`:""}<div class="msg-time">${fmtTime(m.timestamp)}</div></div>`;

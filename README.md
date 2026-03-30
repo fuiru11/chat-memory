@@ -31,10 +31,14 @@ python3 sync.py --serve
 ```bash
 cd chat-memory
 git pull
-python3 sync.py
+./setup.sh        # updates skills + runs migrations + sync
 ```
 
-Migrations run automatically on startup. If you see `Running migration vN → vN+1...`, that's normal — your data is being updated to the latest format.
+The setup script is safe to re-run — it only updates what's changed (newer skills, pending migrations). If you prefer a lighter update:
+
+```bash
+python3 sync.py   # migrations + sync only, no skill updates
+```
 
 If something seems wrong after upgrading, run `/cm-fix` in Claude Code.
 

@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 from datetime import datetime, timezone
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = BASE_DIR / "config.json"
 DATA_DIR = BASE_DIR / "data"
 CONVERSATIONS_DIR = DATA_DIR / "conversations"
