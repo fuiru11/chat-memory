@@ -72,7 +72,13 @@ for skill in nap sleep morning weekly-retro backfill chat-memory-fix; do
     continue
   fi
   if [ -f "$dst" ]; then
-    echo "[skip] Skill '$skill' already exists at $dst"
+    if ! diff -q "$src" "$dst" >/dev/null 2>&1; then
+      echo "[update] Skill '$skill' has a newer version"
+      cp "$src" "$dst"
+      SKILLS_INSTALLED=$((SKILLS_INSTALLED + 1))
+    else
+      echo "[ok] Skill '$skill' is up to date"
+    fi
   else
     mkdir -p "$SKILLS_DST/$skill"
     cp "$src" "$dst"

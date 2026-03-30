@@ -36,7 +36,10 @@ For each artifact in `data/artifacts.json` where `path` is not null, check if th
 ### 1e. Missing Journals
 Check dates that have sessions (from index.json) but no journal file in `data/journal/`.
 
-### 1f. Orphaned Data
+### 1f. Outdated Skills
+Compare installed skills in `~/.claude/skills/` against the repo versions in `~/chat-memory/skills/`. For each skill, check if the files differ. Report any that are outdated.
+
+### 1g. Orphaned Data
 Check for:
 - Summary files referencing sessions not in index.json
 - Segments referencing sessions not in index.json
@@ -68,6 +71,11 @@ If there are dates without journal entries:
 → For each date (chronological order), generate a journal entry using the /sleep logic:
   - Read summaries for that date's sessions
   - Write journal to `data/journal/{date}.md`
+
+### Outdated Skills
+If any installed skills differ from repo versions:
+"Found N outdated skills. Update them?"
+→ For each, copy the repo version to `~/.claude/skills/{skill}/SKILL.md`
 
 ### Orphaned Data
 If found:

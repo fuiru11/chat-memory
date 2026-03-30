@@ -93,9 +93,11 @@ For each segment, record:
 
 ## 2. Detect Highlights
 
-**Highlights are tracked during conversations in `~/chat-memory/data/.highlights-draft.jsonl` (one JSON per line). At /nap time, read this draft file, merge into the main highlights.json, then delete the draft. If the draft is empty or missing, skip this step — do NOT try to recall highlights from memory.**
+**Two sources of highlights:**
+1. **Draft file** — `~/chat-memory/data/.highlights-draft.jsonl` (one JSON per line), captured during conversation. If present, read and merge into highlights.json, then delete the draft.
+2. **Conversation review** — Read the conversation JSONL and scan for notable moments. This is the primary source — always do this, even if the draft file exists (the draft may be incomplete).
 
-Review the conversation for notable moments (these should already be in the draft file):
+Look for:
 - **insight** — A non-obvious realization or observation
 - **perspective_shift** — Someone changed their mind or reframed a problem
 - **good_metaphor** — A metaphor or analogy that captured something well
