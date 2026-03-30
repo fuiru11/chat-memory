@@ -1,6 +1,6 @@
 ---
-name: nap
-description: "Save session — write summary, detect highlights, update artifacts index. Use when ending a conversation or user says /nap."
+name: cm-nap
+description: "Save session — write summary, detect highlights, update artifacts index. Use when ending a conversation or user says /cm-nap."
 disable-model-invocation: true
 ---
 

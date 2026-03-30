@@ -1,5 +1,5 @@
 ---
-name: chat-memory-fix
+name: cm-fix
 description: "Diagnose, repair, and migrate Chat Memory data. Run when something seems wrong or after upgrading."
 disable-model-invocation: true
 ---
@@ -63,12 +63,12 @@ For each artifact with a broken path:
 ### Missing Summaries
 If there are sessions without summaries:
 "Found N sessions without summaries. Generate them?"
-→ For each, run `/backfill {sessionId}` (process up to 10 at a time, ask before continuing if more)
+→ For each, run `/cm-backfill {sessionId}` (process up to 10 at a time, ask before continuing if more)
 
 ### Missing Journals
 If there are dates without journal entries:
 "Found N days without journal entries. Generate them?"
-→ For each date (chronological order), generate a journal entry using the /sleep logic:
+→ For each date (chronological order), generate a journal entry using the /cm-sleep logic:
   - Read summaries for that date's sessions
   - Write journal to `data/journal/{date}.md`
 

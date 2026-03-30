@@ -53,6 +53,7 @@ def init_config():
     default = {
         "claude_projects_dir": "~/.claude/projects",
         "project_filter": None,
+        "project_exclude": None,
         "port": 8787,
         "sync_interval": 300,
         "persona_name": "Claude",
@@ -448,6 +449,9 @@ def extract_project_name(project_dir_name):
 def find_jsonl_files(config):
     projects_dir = config["claude_projects_dir"]
     project_filter = config.get("project_filter")
+    project_exclude = config.get("project_exclude")
+    if isinstance(project_exclude, str):
+        project_exclude = [project_exclude]
     files = []
     if not projects_dir.exists():
         print(f"  Warning: {projects_dir} does not exist")
@@ -456,6 +460,8 @@ def find_jsonl_files(config):
         if not pdir.is_dir():
             continue
         if project_filter and project_filter not in pdir.name:
+            continue
+        if project_exclude and any(ex in pdir.name for ex in project_exclude):
             continue
         project_name = extract_project_name(pdir.name)
         for jf in pdir.glob("*.jsonl"):
@@ -519,10 +525,25 @@ def sync(config, quiet=False):
         # Track startTime for sorting
         all_summaries[sid]["_startTime"] = conv.get("startTime", "")
 
+    # Load summary bodies for search indexing
+    def load_summary_body(sid):
+        f = SUMMARIES_DIR / f"{sid}.md"
+        if not f.exists():
+            return ""
+        try:
+            text = f.read_text(encoding="utf-8")
+            if text.startswith("---"):
+                parts = text.split("---", 2)
+                return parts[2].strip() if len(parts) >= 3 else ""
+            return text.strip()
+        except Exception:
+            return ""
+
     # Build index (sort by startTime desc for correct ordering within same date)
     sessions = sorted(
         [{"id": sid, "project": session_projects.get(sid, ""),
           "startTime": s.get("_startTime", ""),
+          "summaryBody": load_summary_body(sid),
           **{k: s[k] for k in ["date", "title", "one_line", "tags"]}}
          for sid, s in all_summaries.items()],
         key=lambda x: x.get("startTime", "") or x.get("date", ""), reverse=True

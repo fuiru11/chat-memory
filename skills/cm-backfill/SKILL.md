@@ -1,14 +1,14 @@
 ---
-name: backfill
+name: cm-backfill
 description: "Generate summary, highlights, segments, topics, and artifacts for historical sessions. Use after setup or to fill gaps."
 disable-model-invocation: true
 ---
 
-You are generating retrospective data for historical conversation sessions that were not processed with `/nap` at the time.
+You are generating retrospective data for historical conversation sessions that were not processed with `/cm-nap` at the time.
 
 ## Input
 
-You will be given one or more session IDs (space-separated after the skill name, e.g., `/backfill abc123 def456`). If no IDs are given, report an error and stop.
+You will be given one or more session IDs (space-separated after the skill name, e.g., `/cm-backfill abc123 def456`). If no IDs are given, report an error and stop.
 
 ## For Each Session
 
@@ -49,7 +49,7 @@ one_line: "{one sentence summary}"
 
 ### Step 3: Segment the Conversation
 
-Split into segments (chunks about the same topic). Same rules as /nap:
+Split into segments (chunks about the same topic). Same rules as /cm-nap:
 - 2-6 segments per hour. Short conversations can be a single segment.
 - Each segment: topic name, summary, startTs, endTs.
 

@@ -64,7 +64,16 @@ echo "[ok] Data directories ready"
 # --- Install skills ---
 mkdir -p "$SKILLS_DST"
 SKILLS_INSTALLED=0
-for skill in nap sleep morning weekly-retro backfill chat-memory-fix; do
+# Clean up old skill names (pre-cm-prefix)
+OLD_SKILLS="nap sleep morning weekly-retro backfill chat-memory-fix"
+for old in $OLD_SKILLS; do
+  if [ -d "$SKILLS_DST/$old" ]; then
+    rm -rf "$SKILLS_DST/$old"
+    echo "[cleanup] Removed old skill '$old'"
+  fi
+done
+
+for skill in cm-nap cm-sleep cm-morning cm-weekly-retro cm-backfill cm-fix; do
   src="$SKILLS_SRC/$skill/SKILL.md"
   dst="$SKILLS_DST/$skill/SKILL.md"
   if [ ! -f "$src" ]; then
@@ -100,7 +109,7 @@ if [ -f "\$JOURNAL_FILE" ]; then log "Journal for \${TODAY} already exists, skip
 if ! grep -q "\"\${TODAY}\"" "$CHAT_MEMORY_DIR/data/index.json" 2>/dev/null; then log "No sessions for \${TODAY}, skipping."; exit 0; fi
 log "Generating journal for \${TODAY}..."
 cd "\$HOME"
-$CLAUDE_BIN -p "/sleep" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>> "\$LOG_FILE"
+$CLAUDE_BIN -p "/cm-sleep" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>> "\$LOG_FILE"
 [ -f "\$JOURNAL_FILE" ] && log "Journal generated." || log "WARNING: journal not created."
 SCRIPT
   chmod +x "$CHAT_MEMORY_DIR/daily-journal.sh"
@@ -116,7 +125,7 @@ if [ -f "\$INSIGHT_FILE" ]; then log "Weekly insight for \${FRIDAY} already exis
 if [ ! -f "$CHAT_MEMORY_DIR/data/index.json" ]; then log "No index.json, skipping."; exit 0; fi
 log "Generating weekly retro for \${FRIDAY}..."
 cd "\$HOME"
-$CLAUDE_BIN -p "/weekly-retro" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>> "\$LOG_FILE"
+$CLAUDE_BIN -p "/cm-weekly-retro" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>> "\$LOG_FILE"
 [ -f "\$INSIGHT_FILE" ] && log "Weekly insight generated." || log "WARNING: insight not created."
 SCRIPT
   chmod +x "$CHAT_MEMORY_DIR/weekly-retro.sh"
@@ -185,7 +194,7 @@ for s in selected:
         for SID in $BACKFILL_IDS; do
           SHORT_ID=$(echo "$SID" | cut -c1-8)
           echo "  Processing $SHORT_ID..."
-          $CLAUDE_BIN -p "/backfill $SID" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>/dev/null
+          $CLAUDE_BIN -p "/cm-backfill $SID" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>/dev/null
         done
         echo "[ok] Backfill complete"
 
@@ -209,7 +218,7 @@ for d in sorted(dates):
           for DATE in $DATES; do
             if [ ! -f "$CHAT_MEMORY_DIR/data/journal/$DATE.md" ]; then
               echo "  Writing journal for $DATE..."
-              $CLAUDE_BIN -p "/sleep" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>/dev/null
+              $CLAUDE_BIN -p "/cm-sleep" --allowedTools "Bash,Read,Write,Edit,Glob,Grep" 2>/dev/null
             else
               echo "  [skip] Journal for $DATE already exists"
             fi
@@ -218,7 +227,7 @@ for d in sorted(dates):
         fi
       fi
     else
-      echo "[skip] No backfill — you can run /backfill later in Claude Code"
+      echo "[skip] No backfill — you can run /cm-backfill later in Claude Code"
     fi
   fi
 fi
@@ -243,7 +252,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Edit config.json to set your persona_name and user_name"
 echo "  2. Start the viewer: python3 sync.py --serve"
-echo "  3. In Claude Code, try: /nap, /morning, /sleep"
+echo "  3. In Claude Code, try: /cm-nap, /cm-morning, /cm-sleep"
 echo ""
 echo "To personalize your skills, tell Claude:"
 echo '  "Help me customize my Chat Memory skills in ~/.claude/skills/"'

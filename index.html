@@ -150,6 +150,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .dropdown-item.danger{color:var(--danger)}
 .dropdown-item.danger:hover{background:var(--danger-bg)}
 
+.summary-detail{padding:16px 24px;background:var(--surface);border-bottom:1px solid var(--border);max-height:400px;overflow-y:auto}
+.summary-detail h4{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.summary-detail .md-content{font-size:13px;line-height:1.7}
+.summary-detail .md-content h2{font-size:13px;font-weight:600;color:var(--text);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.03em}
+.summary-detail .md-content ul{margin:0 0 8px;padding-left:20px}
+.summary-detail .md-content li{margin-bottom:2px}
+.nav-search{display:none}
 .summary-panel{display:none;padding:14px 24px;background:#fefce8;border-bottom:1px solid #fde68a;max-height:320px;overflow-y:auto}
 .summary-panel.show{display:block}
 .summary-panel h4{font-size:12px;font-weight:500;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
@@ -222,6 +229,7 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
 .j-update .badge{font-size:10px;padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:2px}
 .j-update .badge.new{background:var(--amber-bg);color:var(--amber)}
 .j-update .badge.updated{background:var(--accent-light);color:var(--accent)}
+.j-update .badge.deleted{background:var(--danger-bg);color:var(--danger)}
 .j-block.persona{background:#fefce8;border-color:#fde68a}
 .j-sessions{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
 .j-sessions .j-sbadge{font-size:11px;color:var(--text-3);cursor:pointer;padding:2px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--border);transition:all .15s}
@@ -347,6 +355,7 @@ mark{background:#fef08a;padding:0 2px;border-radius:2px}
               </div>
             </div>
           </div>
+          <div class="summary-detail" id="summaryDetail" style="display:none"></div>
           <div class="summary-panel" id="segmentsPanel"></div>
           <div id="convArtifacts"></div>
           <div class="chat-area" id="chatArea"><div class="empty-state">Select a conversation</div></div>
@@ -748,7 +757,7 @@ function renderHome() {
     const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name).filter(Boolean);
     const pills=topicNames.length
       ?topicNames.map(n=>`<span class="tag-pill">${esc(n)}</span>`).join("")
-      :(s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+      :(s.tags||[]).map(t=>`<span class="tag-pill" data-tag="${esc(t)}">#${esc(t)}</span>`).join("");
     h += `<div class="recent-row" onclick="openConversation('${s.id}')">
       <span class="rdate">${fmtShortDate(s.date)}</span>
       <span class="rtitle">${esc(s.title||"Untitled")}</span>
@@ -839,17 +848,26 @@ function matchSession(s){
   const raw=S.convSearch.trim();
   if(raw){
     const q=raw.toLowerCase();
-    const segText=(S.segSearchIdx[s.id]||"").toLowerCase();
-    const sTags=(s.tags||[]).map(t=>t.toLowerCase());
-    const sProj=(s.project||"").toLowerCase();
-    // Search across: title, one_line, segment text, tags, project, topic names
-    const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name||"").join(" ").toLowerCase();
-    if(!(s.title||"").toLowerCase().includes(q)
-      &&!(s.one_line||"").toLowerCase().includes(q)
-      &&!segText.includes(q)
-      &&!topicNames.includes(q)
-      &&!sTags.some(t=>t.includes(q))
-      &&!sProj.includes(q))return false;
+    // #tag search: exact match on tag name
+    if(q.startsWith("#")){
+      const tagQ=q.slice(1);
+      const sTags=(s.tags||[]).map(t=>t.toLowerCase());
+      if(!sTags.some(t=>t===tagQ))return false;
+    } else {
+      const segText=(S.segSearchIdx[s.id]||"").toLowerCase();
+      const sTags=(s.tags||[]).map(t=>t.toLowerCase());
+      const sProj=(s.project||"").toLowerCase();
+      const sSummary=(s.summaryBody||"").toLowerCase();
+      // Search across: title, one_line, segment text, summary body, tags, project, topic names
+      const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name||"").join(" ").toLowerCase();
+      if(!(s.title||"").toLowerCase().includes(q)
+        &&!(s.one_line||"").toLowerCase().includes(q)
+        &&!segText.includes(q)
+        &&!sSummary.includes(q)
+        &&!topicNames.includes(q)
+        &&!sTags.some(t=>t.includes(q))
+        &&!sProj.includes(q))return false;
+    }
   }
   return true;
 }
@@ -863,7 +881,7 @@ function renderConvList(){
     const topicNames=(s.topicIds||[]).map(tid=>(S.topics[tid]||{}).name).filter(Boolean);
     const pills=topicNames.length
       ?topicNames.map(n=>`<span class="tag-pill">${esc(n)}</span>`).join("")
-      :(s.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join("");
+      :(s.tags||[]).map(t=>`<span class="tag-pill" data-tag="${esc(t)}">#${esc(t)}</span>`).join("");
     const proj=s.project?`<span class="tag-pill" style="background:#e0e7ff;color:#4338ca">${esc(s.project)}</span>`:"";
     return`<div class="conv-card ${s.id===S.activeSession?"active":""}" data-id="${s.id}">
       <div class="cdate">${s.date}${proj?` ${proj}`:""}</div>
@@ -881,7 +899,8 @@ async function renderConv(){
   const hdr=document.getElementById("convHeader");
   const area=document.getElementById("chatArea");
   const sp=document.getElementById("segmentsPanel");
-  if(!S.activeSession){hdr.style.display="none";sp.classList.remove("show");area.innerHTML=`<div class="empty-state">Select a conversation</div>`;document.getElementById("convArtifacts").innerHTML="";return}
+  const sd=document.getElementById("summaryDetail");
+  if(!S.activeSession){hdr.style.display="none";sp.classList.remove("show");sd.style.display="none";area.innerHTML=`<div class="empty-state">Select a conversation</div>`;document.getElementById("convArtifacts").innerHTML="";return}
 
   const conv=await loadConversation(S.activeSession);
   const session=S.index.sessions.find(s=>s.id===S.activeSession);
@@ -893,16 +912,26 @@ async function renderConv(){
   // Show topic pills instead of tags
   const sesTopics=(session?.topicIds||[]).map(tid=>S.topics[tid]).filter(Boolean);
   document.getElementById("convTags").innerHTML=sesTopics.map(t=>`<span class="tag-pill topic-pill" data-tid="${t.id}">${esc(t.name)}</span>`).join("")
-    ||(session?.tags||[]).map(t=>`<span class="tag-pill">#${esc(t)}</span>`).join(""); // fallback to tags
+    ||(session?.tags||[]).map(t=>`<span class="tag-pill" data-tag="${esc(t)}">#${esc(t)}</span>`).join(""); // fallback to tags
 
   renderSegments();
   renderConvArtifacts(S.activeSession);
+
+  // Show full summary
+  const summaryBody=session?.summaryBody;
+  if(summaryBody){
+    sd.style.display="block";
+    sd.innerHTML=`<h4>Summary</h4><div class="md-content">${marked.parse(summaryBody)}</div>`;
+  } else {
+    sd.style.display="none";
+  }
 
   const q=S.convSearch;
   let h="",prev=null;
   for(const m of conv.messages){
     if(timeDivider(prev,m.timestamp))h+=`<div class="time-divider">${fmtTime(m.timestamp)}</div>`;
-    const content=m.role==="assistant"?(q?hlHtml(marked.parse(m.text),q):marked.parse(m.text)):hl(m.text,q);
+    const rendered=marked.parse(m.text);
+    const content=q?hlHtml(rendered,q):rendered;
     const tools=(m.tools||[]).map(t=>`<span class="tool-badge">${esc(t)}</span>`).join("");
     h+=`<div class="message ${m.role}" data-ts="${m.timestamp||''}"><div class="bubble">${content}</div>${tools?`<div class="tool-badges">${tools}</div>`:""}<div class="msg-time">${fmtTime(m.timestamp)}</div></div>`;
     prev=m.timestamp;
@@ -924,7 +953,7 @@ function renderSegments(){
     const topicName=seg.topicId&&S.topics[seg.topicId]?S.topics[seg.topicId].name:seg.topic;
     return`<div class="seg-card" data-start="${seg.startTs}">
       <div class="seg-topic"${seg.topicId?` data-tid="${seg.topicId}"`:""}>${esc(topicName)}</div>
-      <div class="seg-summary">${esc(seg.summary)}</div>
+      <div class="seg-summary">${marked.parseInline(seg.summary)}</div>
       <div class="seg-time">${fmtTime(seg.startTs)} — ${fmtTime(seg.endTs)}</div>
     </div>`;
   }).join("");
@@ -1066,31 +1095,32 @@ async function renderJournal(){
     let blocks = "";
     for(const sec of sections) {
       const t = sec.title;
-      if(t === "What I Learned") {
-        // Render +/- items with colored indicators
+      if(t.startsWith("What I Learned")) {
         const items = sec.content.split("\n").filter(l=>l.trim());
         const html = items.map(l => {
           const line = l.replace(/^[\+\-]\s*/,"");
-          if(l.trim().startsWith("+")) return `<div class="j-learn"><span class="plus">+</span><span>${esc(line)}</span></div>`;
-          if(l.trim().startsWith("-")) return `<div class="j-learn"><span class="minus">-</span><span>${esc(line)}</span></div>`;
-          return `<div class="j-learn"><span>&nbsp;</span><span>${esc(l)}</span></div>`;
+          if(l.trim().startsWith("+")) return `<div class="j-learn"><span class="plus">+</span><span>${marked.parseInline(line)}</span></div>`;
+          if(l.trim().startsWith("-")) return `<div class="j-learn"><span class="minus">-</span><span>${marked.parseInline(line)}</span></div>`;
+          return `<div class="j-learn"><span>&nbsp;</span><span>${marked.parseInline(l)}</span></div>`;
         }).join("");
         blocks += `<div class="j-block"><h4>${esc(t)}</h4>${html}</div>`;
-      } else if(t === "Actions") {
+      } else if(t.startsWith("Actions")) {
         const items = sec.content.split("\n").filter(l=>l.trim());
         const html = items.map(l => {
           const line = l.replace(/^-\s*/,"");
-          return `<div class="j-learn"><span class="plus" style="color:var(--accent)">→</span><span>${esc(line)}</span></div>`;
+          return `<div class="j-learn"><span class="plus" style="color:var(--accent)">→</span><span>${marked.parseInline(line)}</span></div>`;
         }).join("");
         blocks += `<div class="j-block"><h4>${esc(t)}</h4>${html}</div>`;
-      } else if(t === "Persona Update") {
+      } else if(t.startsWith("Persona") || t.startsWith("Growth")) {
         const items = sec.content.split("\n").filter(l=>l.trim());
         const html = items.map(l => {
           const m = l.match(/\[(\w+)\]\s*(.*)/);
-          if(m) return `<div class="j-update"><span class="badge ${m[1]}">${m[1]}</span><span>${esc(m[2])}</span></div>`;
-          return `<div style="font-size:13px;color:#78350f">${esc(l.replace(/^-\s*/,""))}</div>`;
+          if(m) return `<div class="j-update"><span class="badge ${m[1]}">${m[1]}</span><span>${marked.parseInline(m[2])}</span></div>`;
+          return `<div style="font-size:13px;color:#78350f">${marked.parseInline(l.replace(/^-\s*/,""))}</div>`;
         }).join("");
         blocks += `<div class="j-block persona"><h4>${esc(t)}</h4>${html}</div>`;
+      } else if(t.startsWith("Understanding")) {
+        blocks += `<div class="j-block"><h4>${esc(t)}</h4><div class="jtext">${marked.parse(sec.content)}</div></div>`;
       } else {
         blocks += `<div class="j-block"><h4>${esc(t)}</h4><div class="jtext">${marked.parse(sec.content)}</div></div>`;
       }
@@ -1120,16 +1150,16 @@ async function renderJournal(){
 function selectConv(id){S.activeSession=id;renderConvList();renderConv()}
 document.addEventListener("click",()=>{document.querySelectorAll(".j-pop.show").forEach(p=>p.classList.remove("show"))});
 
-// ===== Global search =====
-document.getElementById("globalSearch").addEventListener("input",e=>{
-  S.searchQuery=e.target.value.trim();
-  // Route to conversations tab with search
-  if(S.searchQuery){
-    S.convSearch=S.searchQuery;
-    document.getElementById("convSearch").value=S.searchQuery;
-    switchTab("conversations");
-    renderConvList();
-  }
+// ===== Tag pill click → search =====
+document.addEventListener("click",e=>{
+  const pill=e.target.closest("[data-tag]");
+  if(!pill)return;
+  e.stopPropagation();
+  const tag=pill.dataset.tag;
+  S.convSearch="#"+tag;
+  document.getElementById("convSearch").value="#"+tag;
+  switchTab("conversations");
+  renderConvList();
 });
 
 // ===== Restore deleted from localStorage fallback =====

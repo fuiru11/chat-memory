@@ -1,5 +1,5 @@
 ---
-name: morning
+name: cm-morning
 description: "Morning brief — review yesterday's journal and actions to start the day with context."
 disable-model-invocation: true
 ---

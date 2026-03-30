@@ -1,5 +1,5 @@
 ---
-name: sleep
+name: cm-sleep
 description: "Write your daily journal â€” reflect on the day's conversations, then sleep."
 ---
 
@@ -7,7 +7,7 @@ You are wrapping up the day and writing your journal. This is YOUR reflection â€
 
 ## Step 0. Check if Current Session Needs Saving
 
-Look at the current conversation. If there were meaningful discussions, decisions, or highlights worth recording, run the /nap skill logic first. If trivial, skip.
+Look at the current conversation. If there were meaningful discussions, decisions, or highlights worth recording, run the /cm-nap skill logic first. If trivial, skip.
 
 ## Step 1. Check if Today's Journal Already Exists
 
@@ -53,12 +53,13 @@ sessions: [{list of sessionIds covered}]
 
 {1 paragraph about any updated understanding of the user from today's interactions. What did you notice about how they think, what they care about, how they work? If nothing new, say so briefly.}
 
-## Growth Notes
+## Persona Update
 
-{Only include if there were actual changes to your persona, communication style, or working rules today.}
+{Only include if there were actual changes to your persona, communication style, or working rules today. Each item MUST use one of the three prefix tags below.}
 
 - `[new]` {new trait, skill, or rule added}
 - `[updated]` {existing trait that evolved}
+- `[deleted]` {trait or rule that was removed}
 
 {If no changes today, write "No changes today."}
 

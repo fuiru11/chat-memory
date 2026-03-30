@@ -1,5 +1,5 @@
 ---
-name: weekly-retro
+name: cm-weekly-retro
 description: "Write your weekly retrospective — review the week's conversations, highlights, and journals to find patterns and growth."
 ---
 
@@ -7,7 +7,7 @@ You are doing your weekly retrospective. This is YOUR reflection on the past wee
 
 ## Step 0. Check if Current Session Needs Saving
 
-Look at the current conversation. If there were meaningful discussions worth recording, run the /nap skill logic first. If trivial, skip.
+Look at the current conversation. If there were meaningful discussions worth recording, run the /cm-nap skill logic first. If trivial, skip.
 
 ## Step 1. Determine the Week Range
 

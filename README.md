@@ -16,7 +16,7 @@ chmod +x setup.sh && ./setup.sh
 
 The setup script will:
 - Create your config and data directories
-- Install Claude Code skills (`/nap`, `/sleep`, `/morning`, `/weekly-retro`)
+- Install Claude Code skills (`/cm-nap`, `/cm-sleep`, `/cm-morning`, `/cm-weekly-retro`)
 - Run the first sync of your conversations
 - Optionally set up auto-start on macOS
 
@@ -36,21 +36,21 @@ python3 sync.py
 
 Migrations run automatically on startup. If you see `Running migration vN → vN+1...`, that's normal — your data is being updated to the latest format.
 
-If something seems wrong after upgrading, run `/chat-memory-fix` in Claude Code.
+If something seems wrong after upgrading, run `/cm-fix` in Claude Code.
 
 ## What It Does
 
 **Conversation Viewer** — Browse past conversations with markdown rendering, search, tag filtering, and calendar navigation.
 
-**Summaries & Tags** — AI-generated summaries and topic tags for each session. Created when you run `/nap` at the end of a conversation.
+**Summaries & Tags** — AI-generated summaries and topic tags for each session. Created when you run `/cm-nap` at the end of a conversation.
 
-**Highlights** — Notable moments (insights, perspective shifts, good metaphors) tracked during conversations and collected at `/nap` time.
+**Highlights** — Notable moments (insights, perspective shifts, good metaphors) tracked during conversations and collected at `/cm-nap` time.
 
-**Daily Journal** (`/sleep`) — An end-of-day reflection written by your AI persona. Covers what happened, what was learned, and what to do next.
+**Daily Journal** (`/cm-sleep`) — An end-of-day reflection written by your AI persona. Covers what happened, what was learned, and what to do next.
 
-**Morning Brief** (`/morning`) — A quick recap of yesterday's journal and open action items.
+**Morning Brief** (`/cm-morning`) — A quick recap of yesterday's journal and open action items.
 
-**Weekly Retro** (`/weekly-retro`) — A weekly reflection that connects themes across conversations and tracks growth over time.
+**Weekly Retro** (`/cm-weekly-retro`) — A weekly reflection that connects themes across conversations and tracks growth over time.
 
 ## Skills
 
@@ -58,12 +58,12 @@ Chat Memory ships with 4 Claude Code skills that get installed to `~/.claude/ski
 
 | Skill | When to use |
 |-------|------------|
-| `/nap` | End of a conversation — saves summary, highlights, artifacts |
-| `/sleep` | End of the day — writes your daily journal |
-| `/morning` | Start of the day — reviews yesterday's journal |
-| `/weekly-retro` | End of the week — writes a weekly retrospective |
-| `/backfill` | Generate summaries for historical sessions (e.g., `/backfill abc123`) |
-| `/chat-memory-fix` | Diagnose and repair data issues, run migrations |
+| `/cm-nap` | End of a conversation — saves summary, highlights, artifacts |
+| `/cm-sleep` | End of the day — writes your daily journal |
+| `/cm-morning` | Start of the day — reviews yesterday's journal |
+| `/cm-weekly-retro` | End of the week — writes a weekly retrospective |
+| `/cm-backfill` | Generate summaries for historical sessions (e.g., `/cm-backfill abc123`) |
+| `/cm-fix` | Diagnose and repair data issues, run migrations |
 
 These skills work out of the box with generic defaults. To make them your own, see [Customization](#customization).
 
@@ -75,6 +75,7 @@ Edit `config.json` after setup:
 {
   "claude_projects_dir": "~/.claude/projects",
   "project_filter": null,
+  "project_exclude": null,
   "port": 8787,
   "sync_interval": 300,
   "persona_name": "Claude",
@@ -86,6 +87,7 @@ Edit `config.json` after setup:
 |-------|------------|
 | `claude_projects_dir` | Path to Claude Code's project data |
 | `project_filter` | Only sync projects matching this string (`null` = all) |
+| `project_exclude` | Exclude projects matching this string or array of strings (`null` = none) |
 | `port` | Local server port |
 | `sync_interval` | Auto-sync interval in seconds |
 | `persona_name` | Your AI persona's name (shown in journals) |
@@ -135,7 +137,7 @@ type: reference
 | Journal | ~/chat-memory/data/journal/{date}.md | Daily reflection & action items | Session start (latest) |
 | Summaries | ~/chat-memory/data/recent-summaries.md | Last 5 session summaries | Session start (first entry) |
 | Index | ~/chat-memory/data/index.json | All session index | When searching history |
-| Highlights | ~/chat-memory/data/.highlights-draft.jsonl | In-progress highlight drafts | During /nap |
+| Highlights | ~/chat-memory/data/.highlights-draft.jsonl | In-progress highlight drafts | During /cm-nap |
 | Segments | ~/chat-memory/data/segments.json | Searchable conversation fragments | When searching past content |
 | Topics | ~/chat-memory/data/topics.json | Cross-session topic threads | When tracing a topic over time |
 ```
