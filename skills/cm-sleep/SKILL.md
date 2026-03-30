@@ -9,7 +9,9 @@ You are wrapping up the day and writing your journal. This is YOUR reflection â€
 
 Look at the current conversation. If there were meaningful discussions, decisions, or highlights worth recording, run the /cm-nap skill logic first. If trivial, skip.
 
-## Step 1. Check if Today's Journal Already Exists
+## Step 1. Determine Journal Date & Check Existence
+
+**Day boundary rule:** A "day" starts at 08:00 in the user's timezone. Sessions starting before 08:00 belong to the previous day's journal. Determine the user's timezone from `config.json` (field: `timezone`, e.g. `"Asia/Tokyo"`). If not set, use the system's local timezone. Use the earliest uncovered session's start time (converted to user timezone) to determine which date this journal belongs to.
 
 Check if `~/chat-memory/data/journal/{YYYY-MM-DD}.md` already exists.
 

@@ -701,7 +701,7 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
 function renderHome() {
   const sessions = S.index.sessions;
   const recent = sessions.slice(0,5);
-  const recentHL = S.highlights.slice(0,3);
+  const recentHL = [...S.highlights].sort((a,b)=>(b.timestamp||"").localeCompare(a.timestamp||"")).slice(0,3);
   const recentArt = S.artifacts.slice(0,3);
 
   let h = "";
