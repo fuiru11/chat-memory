@@ -469,6 +469,95 @@ def find_jsonl_files(config):
     return files
 
 
+def load_summary_body(sid):
+    f = SUMMARIES_DIR / f"{sid}.md"
+    if not f.exists():
+        return ""
+    try:
+        text = f.read_text(encoding="utf-8")
+        if text.startswith("---"):
+            parts = text.split("---", 2)
+            return parts[2].strip() if len(parts) >= 3 else ""
+        return text.strip()
+    except Exception:
+        return ""
+
+
+def detect_uncovered_sessions(deleted=None):
+    """Find sessions with summaries but not referenced in any journal."""
+    if deleted is None:
+        deleted = load_deleted()
+    covered = set()
+    for jf in JOURNAL_DIR.glob("*.md"):
+        try:
+            text = jf.read_text(encoding="utf-8")
+            if not text.startswith("---"):
+                continue
+            parts = text.split("---", 2)
+            for line in parts[1].strip().split("\n"):
+                if line.startswith("sessions:"):
+                    val = line.split(":", 1)[1].strip()
+                    if val.startswith("[") and val.endswith("]"):
+                        sids = [s.strip().strip('"').strip("'")
+                                for s in val[1:-1].split(",") if s.strip()]
+                        covered.update(sids)
+        except Exception:
+            continue
+
+    # Sessions with summaries but not in any journal
+    uncovered = []
+    summarized_sids = set()
+    for sf in SUMMARIES_DIR.glob("*.md"):
+        sid = sf.stem
+        summarized_sids.add(sid)
+        if sid not in covered and sid not in deleted:
+            summary = load_summary(sid)
+            uncovered.append({
+                "sessionId": sid,
+                "date": summary.get("date", "") if summary else "",
+                "title": summary.get("title", "") if summary else "",
+            })
+
+    # Sessions with conversations but no summary (never napped)
+    skipped = set()
+    skipped_file = DATA_DIR / "skipped-sessions.json"
+    if skipped_file.exists():
+        try:
+            skipped = set(json.loads(skipped_file.read_text()))
+        except Exception:
+            pass
+
+    unsummarized = []
+    for cf in CONVERSATIONS_DIR.glob("*.json"):
+        sid = cf.stem
+        if sid not in summarized_sids and sid not in deleted and sid not in skipped:
+            try:
+                conv = json.loads(cf.read_text())
+                msg_count = conv.get("messageCount", 0)
+                if msg_count < 4:
+                    continue  # too short to be worth summarizing
+                first_msg = ""
+                for m in conv.get("messages", []):
+                    if m.get("role") == "user":
+                        first_msg = m.get("text", "")[:60]
+                        break
+                unsummarized.append({
+                    "sessionId": sid,
+                    "date": utc_to_local_date(conv.get("startTime", "")) if conv.get("startTime") else "",
+                    "title": first_msg or "Untitled",
+                    "messageCount": msg_count,
+                })
+            except Exception:
+                continue
+
+    uncovered.sort(key=lambda x: x.get("date", ""), reverse=True)
+    unsummarized.sort(key=lambda x: x.get("date", ""), reverse=True)
+    (DATA_DIR / "uncovered-sessions.json").write_text(
+        json.dumps({"uncovered": uncovered, "unsummarized": unsummarized},
+                    ensure_ascii=False, indent=2))
+    return uncovered
+
+
 def sync(config, quiet=False):
     if not quiet:
         print("Syncing...")
@@ -482,9 +571,9 @@ def sync(config, quiet=False):
     if not quiet:
         print(f"  Found {len(jsonl_files)} JSONL files")
 
-    all_summaries = {}
+    # --- Phase A: incremental JSONL parsing ---
     session_projects = {}
-    synced = 0
+    synced_sids = set()
 
     for fp, project_name in jsonl_files:
         sid = session_id_to_filename(fp.stem)
@@ -498,19 +587,15 @@ def sync(config, quiet=False):
         conv_file = CONVERSATIONS_DIR / f"{sid}.json"
 
         cached = state["files"].get(fstr, {})
-        if cached.get("mtime") == mtime and conv_file.exists():
-            try:
-                conv = json.loads(conv_file.read_text())
-            except Exception:
-                conv = parse_jsonl(fp)
-                if not conv:
-                    continue
-                conv_file.write_text(json.dumps(conv, ensure_ascii=False, indent=2))
+        if cached.get("mtime") == mtime and (conv_file.exists() or cached.get("messageCount") == 0):
+            pass  # unchanged (or previously empty)
         else:
             if not quiet:
                 print(f"  Syncing: {fp.name}")
             conv = parse_jsonl(fp)
             if not conv:
+                # Record mtime to avoid retrying empty/meta-only files
+                state["files"][fstr] = {"mtime": mtime, "sessionId": sid, "messageCount": 0}
                 continue
             conv_file.write_text(json.dumps(conv, ensure_ascii=False, indent=2))
             state["files"][fstr] = {
@@ -518,63 +603,117 @@ def sync(config, quiet=False):
                 "sessionId": sid,
                 "messageCount": conv["messageCount"],
             }
-            synced += 1
+            synced_sids.add(sid)
 
-        summary = load_summary(sid) or auto_summary(conv)
-        all_summaries[sid] = summary
-        # Track startTime for sorting
-        all_summaries[sid]["_startTime"] = conv.get("startTime", "")
+    # --- Phase B: incremental index rebuild ---
+    summary_state = state.get("summaries", {})
+    full_rebuild = not summary_state  # first run after upgrade
 
-    # Load summary bodies for search indexing
-    def load_summary_body(sid):
-        f = SUMMARIES_DIR / f"{sid}.md"
-        if not f.exists():
-            return ""
-        try:
-            text = f.read_text(encoding="utf-8")
-            if text.startswith("---"):
-                parts = text.split("---", 2)
-                return parts[2].strip() if len(parts) >= 3 else ""
-            return text.strip()
-        except Exception:
-            return ""
+    # Detect changed summaries
+    changed_sids = set(synced_sids)
+    for sf in SUMMARIES_DIR.glob("*.md"):
+        sid = sf.stem
+        mtime = sf.stat().st_mtime
+        if summary_state.get(sid, {}).get("mtime") != mtime:
+            changed_sids.add(sid)
 
-    # Build index (sort by startTime desc for correct ordering within same date)
-    sessions = sorted(
-        [{"id": sid, "project": session_projects.get(sid, ""),
-          "startTime": s.get("_startTime", ""),
-          "summaryBody": load_summary_body(sid),
-          **{k: s[k] for k in ["date", "title", "one_line", "tags"]}}
-         for sid, s in all_summaries.items()],
-        key=lambda x: x.get("startTime", "") or x.get("date", ""), reverse=True
-    )
-    index = {"lastUpdated": datetime.utcnow().isoformat() + "Z", "sessions": sessions}
-    (DATA_DIR / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2))
-
-    # Build tags
-    tags = {}
-    for sid, s in all_summaries.items():
-        for t in s.get("tags", []):
-            tags.setdefault(t, []).append(sid)
-    (DATA_DIR / "tags.json").write_text(json.dumps(tags, ensure_ascii=False, indent=2))
-
-    # Enrich sessions with topicIds from segments
+    # Check if segments changed
     seg_file = DATA_DIR / "segments.json"
+    seg_mtime = seg_file.stat().st_mtime if seg_file.exists() else 0
+    seg_changed = seg_mtime != state.get("segmentsMtime", 0)
+
+    # Short-circuit if nothing changed
+    if not full_rebuild and not changed_sids and not seg_changed:
+        # Still run uncovered detection (cheap) and save state
+        detect_uncovered_sessions(deleted)
+        save_state(state)
+        if not quiet:
+            print(f"  Nothing changed, {len(session_projects)} total sessions")
+        return
+
+    # Load existing index as dict (or empty for full rebuild)
+    existing_index = {}
+    index_file = DATA_DIR / "index.json"
+    if not full_rebuild and index_file.exists():
+        try:
+            idx = json.loads(index_file.read_text())
+            existing_index = {s["id"]: s for s in idx.get("sessions", [])}
+        except Exception:
+            full_rebuild = True  # corrupted, force full rebuild
+
+    # Update changed entries (or all entries on full rebuild)
+    sids_to_update = session_projects.keys() if full_rebuild else changed_sids
+    for sid in sids_to_update:
+        if sid in deleted:
+            continue
+        conv_file = CONVERSATIONS_DIR / f"{sid}.json"
+        if not conv_file.exists():
+            continue
+        try:
+            conv = json.loads(conv_file.read_text())
+        except Exception:
+            continue
+        summary = load_summary(sid) or auto_summary(conv)
+        existing_index[sid] = {
+            "id": sid,
+            "project": session_projects.get(sid, ""),
+            "startTime": conv.get("startTime", ""),
+            "summaryBody": load_summary_body(sid),
+            "date": summary.get("date", ""),
+            "title": summary.get("title", ""),
+            "one_line": summary.get("one_line", ""),
+            "tags": summary.get("tags", []),
+        }
+        # Cache summary mtime
+        sf = SUMMARIES_DIR / f"{sid}.md"
+        summary_state[sid] = {
+            "mtime": sf.stat().st_mtime if sf.exists() else 0,
+        }
+
+    # Remove deleted sessions
+    for sid in deleted:
+        existing_index.pop(sid, None)
+        summary_state.pop(sid, None)
+
+    # Enrich topicIds from segments
     if seg_file.exists():
         try:
             segments = json.loads(seg_file.read_text())
             session_topics = {}
             for seg in segments:
-                sid = seg.get("sessionId")
+                s_sid = seg.get("sessionId")
                 tid = seg.get("topicId")
-                if sid and tid:
-                    session_topics.setdefault(sid, set()).add(tid)
-            for s in sessions:
-                s["topicIds"] = sorted(session_topics.get(s["id"], []))
-            # Rewrite index with topicIds
-            (DATA_DIR / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2))
+                if s_sid and tid:
+                    session_topics.setdefault(s_sid, set()).add(tid)
+            for sid, entry in existing_index.items():
+                entry["topicIds"] = sorted(session_topics.get(sid, []))
         except (json.JSONDecodeError, KeyError):
             pass
+    state["segmentsMtime"] = seg_mtime
+
+    # Mark skipped sessions in index
+    skipped_file = DATA_DIR / "skipped-sessions.json"
+    skipped = set()
+    if skipped_file.exists():
+        try:
+            skipped = set(json.loads(skipped_file.read_text()))
+        except Exception:
+            pass
+    for sid, entry in existing_index.items():
+        entry["skipped"] = sid in skipped
+
+    # Write index.json ONCE (sorted by startTime desc)
+    sessions = sorted(existing_index.values(),
+        key=lambda x: x.get("startTime", "") or x.get("date", ""), reverse=True)
+    index = {"lastUpdated": datetime.utcnow().isoformat() + "Z", "sessions": sessions}
+    (DATA_DIR / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2))
+
+    # Build tags from in-memory index (no extra file reads)
+    tags = {}
+    for entry in existing_index.values():
+        for t in entry.get("tags", []):
+            tags.setdefault(t, []).append(entry["id"])
+    (DATA_DIR / "tags.json").write_text(json.dumps(tags, ensure_ascii=False, indent=2))
 
     # Init data files if missing
     for fname, default in [("highlights.json", "[]"), ("artifacts.json", "[]"),
@@ -583,11 +722,17 @@ def sync(config, quiet=False):
         if not f.exists():
             f.write_text(default)
 
+    # Detect uncovered sessions
+    detect_uncovered_sessions(deleted)
+
+    # Save state with summary cache
+    state["summaries"] = summary_state
     save_state(state)
+    total = len(sessions)
     if not quiet:
-        print(f"  Done! Synced {synced} new/updated, {len(sessions)} total sessions")
-    elif synced:
-        print(f"  Auto-synced {synced} conversations")
+        print(f"  Done! Synced {len(synced_sids)} new/updated, {total} total sessions")
+    elif synced_sids:
+        print(f"  Auto-synced {len(synced_sids)} conversations")
 
 
 # ===== Server with delete API =====
@@ -630,6 +775,10 @@ def serve(config, open_browser=True):
             else:
                 self.send_response(404)
                 self.end_headers()
+
+        def end_headers(self):
+            self.send_header("Cache-Control", "no-cache")
+            super().end_headers()
 
         def log_message(self, format, *args):
             pass  # Silence request logs

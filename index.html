@@ -510,8 +510,8 @@ async function init() {
     }
   }catch(e){}
 
-  // Filter deleted
-  S.index.sessions = S.index.sessions.filter(s => !S.deleted.has(s.id));
+  // Filter deleted and skipped by default
+  S.index.sessions = S.index.sessions.filter(s => !S.deleted.has(s.id) && !s.skipped);
 
   renderHome();
   renderTopicChips();
@@ -1139,6 +1139,7 @@ async function renderJournal(){
       if(t.startsWith("What I Learned")) {
         const items = sec.content.split("\n").filter(l=>l.trim());
         const html = items.map(l => {
+          if(l.trim().startsWith("###")) return `<h5 style="margin:8px 0 4px">${marked.parseInline(l.replace(/^###\s*/,""))}</h5>`;
           const line = l.replace(/^[\+\-]\s*/,"");
           if(l.trim().startsWith("+")) return `<div class="j-learn"><span class="plus">+</span><span>${marked.parseInline(line)}</span></div>`;
           if(l.trim().startsWith("-")) return `<div class="j-learn"><span class="minus">-</span><span>${marked.parseInline(line)}</span></div>`;
@@ -1148,6 +1149,7 @@ async function renderJournal(){
       } else if(t.startsWith("Actions")) {
         const items = sec.content.split("\n").filter(l=>l.trim());
         const html = items.map(l => {
+          if(l.trim().startsWith("###")) return `<h5 style="margin:8px 0 4px">${marked.parseInline(l.replace(/^###\s*/,""))}</h5>`;
           const line = l.replace(/^-\s*/,"");
           return `<div class="j-learn"><span class="plus" style="color:var(--accent)">→</span><span>${marked.parseInline(line)}</span></div>`;
         }).join("");
@@ -1155,6 +1157,7 @@ async function renderJournal(){
       } else if(t.startsWith("Persona") || t.startsWith("Growth")) {
         const items = sec.content.split("\n").filter(l=>l.trim());
         const html = items.map(l => {
+          if(l.trim().startsWith("###")) return `<h5 style="margin:8px 0 4px">${marked.parseInline(l.replace(/^###\s*/,""))}</h5>`;
           const m = l.match(/\[(\w+)\]\s*(.*)/);
           if(m) return `<div class="j-update"><span class="badge ${m[1]}">${m[1]}</span><span>${marked.parseInline(m[2])}</span></div>`;
           return `<div style="font-size:13px;color:#78350f">${marked.parseInline(l.replace(/^-\s*/,""))}</div>`;
