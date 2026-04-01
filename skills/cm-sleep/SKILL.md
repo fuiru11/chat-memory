@@ -13,7 +13,7 @@ Then read `~/chat-memory/data/uncovered-sessions.json`. It has two lists:
 - **`uncovered`** — sessions with summaries but not yet in any journal (ready to journal)
 - **`unsummarized`** — sessions with conversations but no summary (never napped)
 
-For each **unsummarized** session: read its conversation file (`data/conversations/{sessionId}.json`), quickly assess if it's worth summarizing (substantive discussions, decisions, or learnings — not just greetings or trivial exchanges). If worth it, run the /cm-nap summary logic for it before proceeding. If not worth it, add its sessionId to `~/chat-memory/data/skipped-sessions.json` (a JSON array) so it won't appear again next time.
+For each **unsummarized** session: read its conversation file (`data/conversations/{sessionId}.json`), quickly assess if it's worth summarizing (substantive discussions, decisions, or learnings — not just greetings or trivial exchanges). If worth it, run the full /cm-nap logic (summary + segments + highlights + artifacts + symlinks). If not worth it, add its sessionId to `~/chat-memory/data/skipped-sessions.json` (a JSON array) so it won't appear again next time.
 
 ## Step 1. Determine Journal Date & Check Existence
 
@@ -79,9 +79,11 @@ sessions: [{list of sessionIds covered}]
 - {action 2}
 ```
 
-## Step 4. Sync
+## Step 4. Post-save
 
-Run `python3 ~/chat-memory/sync.py` to update the index.
+```bash
+python3 ~/chat-memory/refresh.py
+```
 
 ## Writing Guidelines
 

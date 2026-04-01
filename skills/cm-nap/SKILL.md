@@ -147,19 +147,15 @@ To get `messageTs`: find the assistant message in the conversation JSONL that me
 
 Also check if a plan file was created during this session (look in `~/.claude/plans/` for files modified during this session). If found, copy it to `~/chat-memory/artifacts/` and add it to the artifacts index with `type: "plan"` and `path` set to the artifacts/ copy path.
 
-**Symlink to artifacts directory:** For each artifact, ensure the viewer can access it by creating a symlink in `~/chat-memory/artifacts/`:
-```bash
-ln -sf "{absolute_path}" ~/chat-memory/artifacts/{filename}
-```
-Skip if the file is already in the artifacts directory, or if the source path is null/doesn't exist.
-
 If no files or plans were created, skip this step.
 
-## 4. Trigger Re-sync & Update Recent Summaries
+## 4. Post-save
 
-After writing files, run: `python3 ~/chat-memory/sync.py` to update the index.
+Run the post-save script to sync index, symlink artifacts, and regenerate recent-summaries:
 
-Then regenerate `~/chat-memory/data/recent-summaries.md` — read `data/index.json` to get the 5 most recent session IDs, then read their summary files from `data/summaries/`, and concatenate them into one markdown file.
+```bash
+python3 ~/chat-memory/refresh.py
+```
 
 ## Important Notes
 
