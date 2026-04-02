@@ -21,8 +21,8 @@ For each **unsummarized** session: read its conversation file (`data/conversatio
 
 Check if `~/chat-memory/data/journal/{YYYY-MM-DD}.md` already exists.
 
-- If it exists → read its frontmatter `sessions: [...]` list first (these must be preserved in the rewrite). Then ask if they want you to rewrite or skip.
-- If it doesn't exist → proceed to write.
+- If it exists → **append only**. Read the existing journal, then add a new `## Addendum ({HH:MM})` section at the end with reflections on the new sessions. Update the frontmatter `sessions: [...]` to include new session IDs, but NEVER modify or remove existing content.
+- If it doesn't exist → proceed to write a fresh journal.
 
 ## Step 2. Gather Today's Material
 
