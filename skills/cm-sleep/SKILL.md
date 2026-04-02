@@ -21,7 +21,7 @@ For each **unsummarized** session: read its conversation file (`data/conversatio
 
 Check if `~/chat-memory/data/journal/{YYYY-MM-DD}.md` already exists.
 
-- If it exists → **append only**. Read the existing journal, then add a new `## Addendum ({HH:MM})` section at the end with reflections on the new sessions. Update the frontmatter `sessions: [...]` to include new session IDs, but NEVER modify or remove existing content.
+- If it exists → **append into existing sections**. Read the existing journal, then insert new content into the matching sections (new learnings at the end of "What I Learned", new persona updates at the end of "Persona Update", etc.). Add new paragraphs to "Daily Reflection" and "Understanding the User" rather than replacing them. Update the frontmatter `sessions: [...]` to include new session IDs. NEVER remove or rephrase existing content — only add to it.
 - If it doesn't exist → proceed to write a fresh journal.
 
 ## Step 2. Gather Today's Material
