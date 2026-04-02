@@ -542,7 +542,7 @@ function fmtTime(ts){if(!ts)return"";const d=new Date(ts);return`${d.getHours().
 function fmtDate(ts){if(!ts)return"";const d=new Date(ts);return`${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}-${d.getDate().toString().padStart(2,"0")} ${fmtTime(ts)}`}
 function fmtShortDate(ts){if(!ts)return"";const d=new Date(ts);return`${d.getMonth()+1}月${d.getDate()}日`}
 function timeDivider(a,b){return a&&b&&(new Date(b)-new Date(a))>120000}
-function typeLabel(t){return{insight:"洞察",perspective_shift:"观点转变",good_metaphor:"好比喻",reflection:"反思",bookmark:"收藏"}[t]||t}
+function typeLabel(t){return{insight:"Insight",perspective_shift:"Perspective Shift",good_metaphor:"Good Metaphor",reflection:"Reflection",bookmark:"Bookmark"}[t]||t}
 function fileExt(f){return(f.match(/\.(\w+)$/)||[])[1]||""}
 function renderHighlightCard(hl){
   return`<div class="card highlight-card speaker-${hl.speaker||'assistant'}" style="margin-bottom:8px;cursor:pointer" onclick="jumpToHighlight('${hl.id}')">
@@ -709,7 +709,7 @@ function renderHome() {
   // Weekly Insight
   const ins = S.insight;
   if (ins) {
-    const themes = (ins.themes||[]).map(t=>`<span class="tag-pill">${esc(t)}</span>`).join("");
+    const themes = (ins.themes||[]).map(t=>`<span class="tag-pill" style="cursor:pointer" onclick="searchByTag('${esc(t)}')">${esc(t)}</span>`).join("");
     const st = ins.stats||{};
     h += `<div class="insight-card">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -801,6 +801,17 @@ function renderHome() {
 function switchTab(name) {
   document.querySelector(`.nav-tab[data-tab="${name}"]`).click();
 }
+function searchByTag(tag){
+  S.convSearch='#'+tag;
+  document.getElementById('convSearch').value='#'+tag;
+  switchTab('conversations');
+  selectFirstMatch();
+}
+function selectFirstMatch(){
+  const ss=S.index.sessions.filter(matchSession);
+  if(ss.length){S.activeSession=ss[0].id;S.showSegments=false}
+  renderConvList();renderConv();
+}
 
 function openConversation(id) {
   S.activeSession = id;
@@ -841,10 +852,15 @@ document.getElementById("calToggle").addEventListener("click",()=>{
 
 function renderTopicChips(){
   const c=document.getElementById("tagFilters");
-  const tids=Object.keys(S.topics).sort((a,b)=>(S.topics[b].lastUpdated||"").localeCompare(S.topics[a].lastUpdated||""));
+  // Rank topics by unique session count (descending), show top 3
+  const tids=Object.keys(S.topics).sort((a,b)=>{
+    const aSids=new Set((S.topics[a].segments||[]).map(sid=>{const seg=S.segments.find(s=>s.id===sid);return seg?seg.sessionId:null}).filter(Boolean));
+    const bSids=new Set((S.topics[b].segments||[]).map(sid=>{const seg=S.segments.find(s=>s.id===sid);return seg?seg.sessionId:null}).filter(Boolean));
+    return bSids.size-aSids.size;
+  });
   if(!tids.length){c.style.display="none";return}
   c.style.display="flex";
-  c.innerHTML=tids.slice(0,15).map(tid=>{
+  c.innerHTML=tids.slice(0,3).map(tid=>{
     const t=S.topics[tid];
     return`<span class="tag-chip ${S.activeTopics.has(tid)?"active":""}" data-t="${tid}">${esc(t.name)}</span>`;
   }).join("");
@@ -877,14 +893,13 @@ function matchSession(s){
   const raw=S.convSearch.trim();
   if(raw){
     const q=raw.toLowerCase();
+    const sTags=(s.tags||[]).map(t=>t.toLowerCase());
     // #tag search: exact match on tag name
     if(q.startsWith("#")){
       const tagQ=q.slice(1);
-      const sTags=(s.tags||[]).map(t=>t.toLowerCase());
       if(!sTags.some(t=>t===tagQ))return false;
     } else {
       const segText=(S.segSearchIdx[s.id]||"").toLowerCase();
-      const sTags=(s.tags||[]).map(t=>t.toLowerCase());
       const sProj=(s.project||"").toLowerCase();
       const sSummary=(s.summaryBody||"").toLowerCase();
       // Search across: title, one_line, segment text, summary body, tags, project, topic names
@@ -1055,7 +1070,7 @@ document.addEventListener("click",e=>{
   if(pill)showTopicThread(pill.dataset.tid);
 });
 
-document.getElementById("convSearch").addEventListener("input",e=>{S.convSearch=e.target.value.trim();renderConvList();if(S.activeSession)renderConv()});
+document.getElementById("convSearch").addEventListener("input",e=>{S.convSearch=e.target.value.trim();selectFirstMatch()});
 document.getElementById("summaryBtn").addEventListener("click",()=>{S.showSegments=!S.showSegments;document.getElementById("summaryBtn").classList.toggle("active",S.showSegments);renderSegments()});
 document.getElementById("moreBtn").addEventListener("click",e=>{e.stopPropagation();document.getElementById("moreMenu").classList.toggle("show")});
 document.addEventListener("click",()=>document.getElementById("moreMenu").classList.remove("show"));

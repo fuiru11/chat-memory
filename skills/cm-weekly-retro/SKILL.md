@@ -83,7 +83,21 @@ Update `~/chat-memory/data/latest-insight.json` with:
 }
 ```
 
-## Step 5. Sync
+## Step 5. Tag Gardening
+
+Review and clean up tags across all summaries (`data/summaries/*.md` frontmatter `tags` field):
+
+1. **Read all tags** — Collect every tag from every summary, count usage frequency.
+2. **Merge synonyms** — Find tags that mean the same thing (e.g., `discord-webhook` and `discord-push`, `ai-collaboration` and `ai-collab`). Keep the more descriptive one, update all summaries that use the old tag.
+3. **Remove low-value tags** — Tags that are too generic (e.g., `discussion`, `chat`) or used only once with no reuse potential. Remove them from the summary frontmatter.
+4. **Normalize naming** — Enforce consistent style:
+   - English, lowercase, hyphen-separated (e.g., `scheduled-agents` not `scheduledAgents`)
+   - Specific over generic (e.g., `cs2-esports` not `gaming`)
+5. **Report changes** — List what was merged, removed, or renamed so the user can review.
+
+Only make changes that are clearly improvements. When in doubt, leave it.
+
+## Step 6. Sync
 
 Run `python3 ~/chat-memory/sync.py` to update the index.
 
